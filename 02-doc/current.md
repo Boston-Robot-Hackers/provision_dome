@@ -1,15 +1,25 @@
 # Current Status
 
-**Date:** 2026-08-07
+**Date:** 2026-09-22
 
 Full session-by-session log lives in `02-doc/history.md`. This file holds
 only current status and open items.
 
 ## Status
 
-F02, F03, F04, F05 all complete. **F06 is open — spec'd, no tasks written
-yet**, so no code can start on it until a `04-tasks/TF06-*.md` exists.
-`04-tasks/notdone/` is empty.
+F02, F03, F04, F05 all complete.
+
+- **F06** (macOS Docker dev) — spec'd, **no tasks yet**.
+- **F07** (cloud dev host) — spec'd and tasked, 9 tasks in
+  `04-tasks/notdone/TF07-cloud-dev-host.md`, none started. **Rewritten
+  2026-09-22 after a critique**; see below.
+- **F08** (join a remote host to the robot's graph over Tailscale) — new,
+  split out of F07. Spec only, with open questions to resolve before tasks.
+- **F09** (shared internet-facing server with on-demand wake) — **deferred**
+  summary in `03-features/deferred/`. Recorded for memory only; the user
+  doubts they'll pursue it.
+
+F07's T08 has an ordering dependency on F06 (both add a scenario row).
 
 This session was an analysis pass over the Pi (Scenario 1) build path, with
 one fix landed and one new feature spec'd.
@@ -76,6 +86,61 @@ compose files are passed**, not by a new `manifest/` flag — no
 
 **Tasks not yet written.**
 
+### Open — F07, cloud host as a remote ROS 2 dev box
+
+`03-features/notdone/f07-cloud-dev-host.md`, tasks in
+`04-tasks/notdone/TF07-cloud-dev-host.md`. Rewritten after a critique found
+that following `vm-howto.md` on a real cloud host would fail.
+
+**What breaks on a cloud host today:**
+
+- The login user is `root` or `ubuntu`, so the repo gets cloned into the
+  wrong home. `manifest/bashrc:1` hardcodes `~/provision_dome`, so
+  `ROS_DISTRO` comes out empty.
+- `host-setup.sh` creates the user interactively with no `authorized_keys`,
+  and cloud images disable password SSH, so the new user can't log in.
+- Swap is Pi-only.
+- The guide copies your personal GitHub key onto an internet-facing box.
+
+**Decisions in the rewrite:**
+
+- **`DOME_TARGET=cloud`** now has real behavior: it gets swap.
+- **A cloud-init template** (`host-file-templates/cloud/user-data.template`)
+  creates the user with your key, clones the repo into the right home,
+  writes `user.txt`, and runs `host-setup.sh` and `bare-metal-base.sh`.
+  This is the "simplify provisioning" win.
+- **A host-specific GitHub key**, revoked at teardown.
+- **Access by SSH tunnel only, no Tailscale.** Foxglove first; the noVNC
+  desktop is optional, and both the VNC and websockify listeners are
+  loopback-only.
+- **arm64 or x86_64.**
+
+Robot-graph joining moved to F08. Provider research and pricing moved to
+`02-doc/notes.md`, *Dev host options*, which was then revised:
+
+- Costs are now priced for occasional (~40 h) and always-on use.
+- Stop/snapshot lifecycle costs are included.
+- The Oracle figure was corrected: its allowance was halved in June 2026,
+  so the old $28 figure was wrong.
+- A refurbished desk mini PC was added as an alternative.
+
+**Open decision before T01: cloud host or desk box.** A desk box on the
+robot's network would make most of F07 and F08 unnecessary.
+
+T01 is a manual cloud bring-up that must confirm the predicted breakages
+before any code. **Not started.**
+
+### Open — F08, remote host joins the robot's ROS graph
+
+`03-features/notdone/f08-remote-ros-graph.md`. Split out because it
+**requires changing the robot**: Tailscale on the Pi, and unicast discovery
+configured on both ends. It also depends on which RMW the native path runs,
+which this repo doesn't pin (only `compose.yaml` does; `rosutils` may).
+
+Five open questions are listed in the spec: RMW, discovery mechanism,
+robot opt-in, `ROS_DOMAIN_ID` policy, and `/cmd_vel` authority. Resolve
+them before writing tasks. Absorbs F06's deferred graph-joining question.
+
 ## Open
 
 - Five chores logged in `04-tasks/chores.md`, none blocking: `pi-howto.md`'s
@@ -105,10 +170,17 @@ compose files are passed**, not by a new `manifest/` flag — no
   run against that repo directly (pin `numpy<2`, drop `opencv-python`).
 
 - F06 needs a task list before any implementation can begin, per
-  `.claude/process.md`. Its one unresolved design question is deferred, not
-  open: joining the robot's ROS graph from the Mac container would need a
-  FastDDS discovery server or unicast peers plus a `ROS_DOMAIN_ID` collision
-  policy — a separate feature if it's ever wanted.
+  `.claude/process.md`. Its deferred graph-joining question is now F08.
+
+- Side observation, not tracked yet: the commented first-boot block in
+  `host-file-templates/boot/firmware/user-data.template` runs
+  `./host-setup.sh` from the repo root, but the script lives at
+  `scripts/host-setup.sh`. It would fail if uncommented. Worth a chore.
+
+- F07 has a full task list and is ready to start; T01 (validating the
+  existing vm path on a real cloud instance) is the natural next step and is
+  a manual provisioning run, not code. T07 (scenario-table/README updates)
+  should wait until F06's status/wording is settled to avoid rework.
 
 ## Blockers
 
