@@ -143,7 +143,11 @@ Runs as root. Reads from `manifest/` to:
   `DOME_TARGET=vm`)
 - Run `rosdep install` with skip-keys from `manifest/rosdep.txt`
 - Run `colcon build` with flags from `manifest/colcon.txt`
-- Install `manifest/bashrc` and `bru` symlink
+- Install `manifest/bashrc` as `~/.bashrc`, and the `bru` symlink. This is
+  where `ROS_DISTRO` (read from `manifest/config.txt`) actually takes
+  effect: `manifest/bashrc` exports it and sources the ROS/workspace setup,
+  and this step is what copies that file to `~/.bashrc` so every *new*
+  shell picks it up (see Step 6)
 
 Requires GitHub SSH key present for private repos.
 
