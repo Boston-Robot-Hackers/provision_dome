@@ -105,6 +105,17 @@ ssh ubuntu@<public-ip>
 sudo apt update && sudo apt -y upgrade
 ```
 
+**Pin the key.** If your Mac's `~/.ssh/config` has a broad `Host *` block
+with its own `IdentityFile`, plain `ssh` can offer the wrong key and fail with
+`Permission denied (publickey)`. Name the key explicitly:
+
+```sh
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes ubuntu@<public-ip>
+```
+
+Use the private key that matches the public key you gave the instance. The
+same flags apply to the tunnel commands below.
+
 **Add swap by hand.** Today the repo creates swap only when
 `DOME_TARGET=pi`; F07 TF07.2 changes that.
 
@@ -140,6 +151,11 @@ cat ~/.ssh/id_ed25519.pub         # add at github.com → Settings → SSH keys,
 ssh -T git@github.com             # expect "Hi <you>!"
 sudo scripts/bare-metal-build.sh
 ```
+
+This must be the key of the user that runs the build (`ubuntu`), stored under
+its default name `~/.ssh/id_ed25519`. `bare-metal-build.sh` clones the private
+repos as that user, so a key elsewhere, or one you delete afterward, makes the
+build fail at the first clone with `Permission denied (publickey)`.
 
 Delete the `oci-dome` key from GitHub when you tear the instance down.
 

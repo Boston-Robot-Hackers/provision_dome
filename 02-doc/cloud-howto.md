@@ -78,6 +78,17 @@ swapon --show                   # lists /swapfile
 If `cloud-init status` reports `error`, read
 `/var/log/cloud-init-output.log` to see which step failed.
 
+**Pin the key.** If your Mac's `~/.ssh/config` has a broad `Host *` block
+with its own `IdentityFile`, plain `ssh` can offer the wrong key and fail with
+`Permission denied (publickey)`. Name the key explicitly:
+
+```sh
+ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes <DOME_USER>@<public-ip>
+```
+
+Use the private key that matches the public key you gave the instance. The
+same flags apply to the tunnel commands below.
+
 ---
 
 ## Step 4: GitHub Key And Build
@@ -90,6 +101,11 @@ ssh-keygen -t ed25519 -C "cloud-dome" -f ~/.ssh/id_ed25519
 cat ~/.ssh/id_ed25519.pub     # add at github.com → Settings → SSH keys, named "cloud-dome"
 ssh -T git@github.com         # expect "Hi <you>!"
 ```
+
+This must be the key of the user that runs the build (`<DOME_USER>`), stored under
+its default name `~/.ssh/id_ed25519`. `bare-metal-build.sh` clones the private
+repos as that user, so a key elsewhere, or one you delete afterward, makes the
+build fail at the first clone with `Permission denied (publickey)`.
 
 Then build the workspace:
 

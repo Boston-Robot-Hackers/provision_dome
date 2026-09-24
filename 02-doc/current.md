@@ -249,10 +249,9 @@ them before writing tasks. Absorbs F06's deferred graph-joining question.
   `./host-setup.sh` from the repo root, but the script lives at
   `scripts/host-setup.sh`. It would fail if uncommented. Worth a chore.
 
-- F07's breakage findings imply doc fixes to `oci-howto.md`/`cloud-howto.md`
-  (host GitHub key must be the `DOME_USER`'s, default filename; explicit
-  `-i … -o IdentitiesOnly=yes` ssh form). F10 makes the key unnecessary on
-  cloud hosts.
+- F07's breakage doc fixes landed in `oci-howto.md`/`cloud-howto.md` (key
+  ownership and filename; explicit `-i … -o IdentitiesOnly=yes`). F10 makes
+  the GitHub key unnecessary on cloud hosts and will rewrite that step.
 
 ## Blockers
 
