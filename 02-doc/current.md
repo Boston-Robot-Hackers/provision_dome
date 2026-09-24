@@ -19,26 +19,20 @@ F02, F03, F04, F05 all complete.
   summary in `03-features/deferred/`. Recorded for memory only; the user
   doubts they'll pursue it.
 
-- **F10** (selectable repo cloning) — **spec'd, tasks TF10.0–TF10.6 written,
-  none started.** Adds a `PRIVATE_REPO` marker in `manifest/repos.txt` and a
-  `DOME_CLONE_OVERRIDE` flag (unset = clone all; `PUBLIC_ONLY`; `NONE`), so a
-  cloud host carries **no push-capable GitHub key and no private clones**.
-  Purely additive: `pi`/`vm`/`docker` unchanged. See below.
+- **F10** (selectable repo cloning) — **complete (2026-09-24).** `PRIVATE_REPO`
+  marker in `repos.txt` plus `DOME_CLONE_OVERRIDE` (unset = clone all,
+  `PUBLIC_ONLY`, `NONE`); the cloud-init template sets `PUBLIC_ONLY`, so a cloud
+  host needs no GitHub key. Verified live on OCI. Feature and task files in
+  `done/`.
 
-F10's TF10.5 edits the F07 cloud-init template and `cloud-howto.md`.
 
 ## ⏭ Next session — pick the next feature
 
-F07 is closed. Candidates:
+F07 and F10 are closed. Candidates:
 
-- **F10** (selectable repo cloning) — tasks written, none started; removes the
-  push-capable GitHub key from the cloud host. Suggested next: TF10.0/TF10.1.
 - **F06** (macOS Docker dev) — spec'd, needs a task list first.
 - **F08** (remote graph) — five open questions to resolve before tasks.
-
-The branch `feature/f07-cloud-dev-host` has many **uncommitted** changes
-(Terraform, `Makefile`, `cloud-howto.md`, F10 files, F07 close-out) — commit
-when asked.
+- Two small open chores in `04-tasks/chores.md`.
 
 **Box:** `dome-cloud-1` at `129.213.124.37` (arm64, 4 OCPU/24 GB). Re-entry:
 `make ssh`, or `ssh -i ~/.ssh/id_oci -o IdentitiesOnly=yes ubuntu@129.213.124.37`.
@@ -66,19 +60,21 @@ not a cost play. All friction is logged, so a pivot wastes nothing.
 
 ---
 
-### Open — F10, selectable repo cloning
+### Done — F10, selectable repo cloning
 
-`03-features/notdone/f10-selectable-repo-cloning.md`, tasks in
-`04-tasks/notdone/TF10-selectable-repo-cloning.md`. Motivated by F07: the
-cloud host needed a push-capable account GitHub key just to clone the private
-`git@` repos in `repos.txt`, and left private source on an internet-facing box.
+`03-features/done/f10-selectable-repo-cloning.md`, tasks in
+`04-tasks/done/TF10-selectable-repo-cloning.md`; tests in
+`tests/test_f10_repo_cloning.sh` (47 checks, suite green).
 
-- TF10.0 mark private repos, TF10.1 resolve the flag, TF10.2 order-independent
-  marker parser, TF10.3 gate `clone_section`, TF10.4 refuse `git@`/`ssh://`
-  clones under `PUBLIC_ONLY`/`NONE`, TF10.5 cloud-init + `cloud-howto.md`
-  integration, TF10.6 test suite and regression check.
-- Not started. Per process, switching from F07 to F10 needs permission first.
-- Suggested order: close F07 TF07.0 first, then F10.
+- Task order was amended: the parser (TF10.2) had to land *before* the markers
+  (TF10.0), because the old parser read `PRIVATE_REPO` as a git branch. The
+  `Dockerfile` has its own `clone_section` and got the same parser change.
+- **Live check found a gap:** `manifest/bashrc` sourced the private `rosutils`,
+  so under `PUBLIC_ONLY` a new shell had no `ros2`. Fixed: `bashrc` sources
+  `rosutils` only if present, else the ROS underlay and workspace overlay.
+  Verified on OCI with a throwaway user: build succeeded, `ros2` works.
+- Not covered: the Docker image itself was not rebuilt (static test only), and
+  `oci-howto.md` still shows the GitHub-key step for its manual `vm`-target path.
 
 ### Housekeeping (2026-09-24)
 

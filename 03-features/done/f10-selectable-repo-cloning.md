@@ -3,10 +3,10 @@
 ## F10 — Selectable repo cloning (no credentials or private clones on shared hosts)
 
 **Priority**: High
-**Done:** no
+**Done:** yes
 **Tasks File Created:** yes
-**Tests Written:** no
-**Test Passing:** no
+**Tests Written:** yes
+**Test Passing:** yes
 
 **Description**: Let a build **exclude the user's private repositories** so a
 cloud or otherwise shared/untrusted host never receives a push-capable GitHub

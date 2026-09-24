@@ -6,22 +6,30 @@ Feature: selectable repo cloning via a `PRIVATE_REPO` marker in
 `manifest/repos.txt` and a `DOME_CLONE_OVERRIDE` flag. Purely additive —
 unset default reproduces today's behavior, so `pi`/`vm`/`docker` are unchanged.
 
+**Execution order: TF10.2 first, then TF10.0.** The existing parser
+(`read -r repo dest branch`) would read `PRIVATE_REPO` as a branch and run
+`git clone --branch PRIVATE_REPO`, so the markers must not land until every
+parser tolerates them. Two parsers exist: `bare-metal-build.sh` and the
+`Dockerfile` (`clone_section` is duplicated in both). Both use one shared
+helper in `manifest/lib.sh`.
+
 ## TF10.0 — Mark private repos in repos.txt
-**Status**: not done
+**Status**: done
 **Description**: Append the bareword marker `PRIVATE_REPO` to every
 credential-requiring line in `manifest/repos.txt` — i.e. every `git@github.com:`
 (SSH) line across all sections (`campusrover/*`, `Boston-Robot-Hackers/*`,
 `pitosalas/*`). Leave every `https://` line unmarked. Do not change URLs,
 destinations, branches, or section order.
 
-This is data only; behavior does not change until the parser and gate land
-(TF10.2, TF10.3), and never changes with the override unset.
+**Do this after TF10.2.** Once every parser tolerates the marker this is data
+only; behavior does not change until the gate lands (TF10.3), and never
+changes with the override unset.
 
 Test: in `tests/test_f10_repo_cloning.sh`, assert every `git@` line in
 `repos.txt` ends with / contains `PRIVATE_REPO`, and no `https://` line does.
 
 ## TF10.1 — Resolve DOME_CLONE_OVERRIDE (unset by default)
-**Status**: not done
+**Status**: done
 **Description**: Document `DOME_CLONE_OVERRIDE` in `manifest/config.txt` as a
 **commented** entry (unset by default), in the comment style of `DOME_TARGET`/
 `DOME_DESKTOP`, listing values `PUBLIC_ONLY` and `NONE` and stating that unset
@@ -38,8 +46,12 @@ when env unset; empty when neither present; an unrecognized value is treated as
 unset-equivalent only if TF10.3 says so (see there).
 
 ## TF10.2 — Parse the PRIVATE_REPO marker (order-independent)
-**Status**: not done
-**Description**: Change `clone_section` so it recognizes `PRIVATE_REPO`
+**Status**: done
+**Description**: Add `manifest_parse_repo` to `manifest/lib.sh` and use it in
+**both** `clone_section` copies — `scripts/bare-metal-build.sh` and the
+`Dockerfile` (which sources `/manifest/lib.sh`). In the Dockerfile the marker
+is tolerated but never acted on, so image behavior is unchanged. Change
+`clone_section` so it recognizes `PRIVATE_REPO`
 **wherever it appears** on a line and still resolves the optional branch. Read
 the trailing fields, detect the marker token, and treat the remaining non-marker
 token (if any) as the branch. Must keep working for existing lines:
@@ -50,7 +62,7 @@ Test: feed the parser fixture lines covering all four shapes; assert correct
 `(repo, dest, branch, is_private)` for each.
 
 ## TF10.3 — Gate clone_section on the override
-**Status**: not done
+**Status**: done
 **Description**: Apply `DOME_CLONE_OVERRIDE` in `bare-metal-build.sh`:
 
 - **unset** → clone every line (today's behavior).
@@ -67,7 +79,7 @@ assert: unset clones all; `PUBLIC_ONLY` clones only unmarked; `NONE` clones
 none; an unrecognized value exits non-zero.
 
 ## TF10.4 — SSH-clone safety net
-**Status**: not done
+**Status**: done
 **Description**: When the override is `PUBLIC_ONLY` or `NONE`, the build must
 **never invoke a `git@`/`ssh://` clone**, even for a line left unmarked by
 mistake. Before cloning under those modes, if a to-be-cloned URL is SSH, stop
@@ -79,7 +91,7 @@ Test: under `PUBLIC_ONLY`, a fixture with an **unmarked** `git@` line causes a
 non-zero exit with a message naming that repo, and no clone is attempted.
 
 ## TF10.5 — F07 cloud-init + cloud-howto integration
-**Status**: not done
+**Status**: done
 **Description**: Make the cloud host credential-free by default:
 
 - `host-file-templates/cloud/user-data.template` writes
@@ -93,12 +105,18 @@ non-zero exit with a message naming that repo, and no clone is attempted.
 
 Depends on TF10.1–TF10.3. Coordinate wording with the F07 close-out.
 
+**Found and fixed during the live check (2026-09-24):** `manifest/bashrc`
+sourced the private `rosutils`, so under `PUBLIC_ONLY` a new shell had no
+`ros2`. `bashrc` now sources `rosutils` only if present, else the ROS underlay
+and `~/ros2_ws` overlay. Verified on OCI: a `PUBLIC_ONLY` build as a fresh
+user succeeded (4 public packages, 1m18s) and `ros2` works in a new shell.
+
 Test: assert the template sets `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` and contains
 no private-key material; assert `cloud-howto.md` mentions `PUBLIC_ONLY` and
 "no GitHub key". Full first-boot behavior stays a manual test in TF07.0's style.
 
 ## TF10.6 — F10 test suite + regression check
-**Status**: not done
+**Status**: done
 **Description**: Consolidate TF10.0–TF10.5's checks into
 `tests/test_f10_repo_cloning.sh`, following `tests/test_f05_dome_mode.sh`'s
 `pass`/`fail` helpers and headings. Runs on the Mac with no cloud instance;

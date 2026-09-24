@@ -39,3 +39,50 @@ manifest_config() {
 manifest_sections() {
     awk '/^\[/{gsub(/[\[\]]/,""); print}' "$1"
 }
+
+# manifest_parse_repo <repos.txt line>
+# Sets REPO_URL, REPO_DEST, REPO_BRANCH and REPO_IS_PRIVATE. Trailing fields
+# are the optional branch and the PRIVATE_REPO marker, in either order.
+manifest_parse_repo() {
+    local extra token
+    read -r REPO_URL REPO_DEST extra <<< "$1"
+    REPO_BRANCH=""
+    REPO_IS_PRIVATE=false
+    for token in ${extra}; do
+        if [[ "${token}" == "PRIVATE_REPO" ]]; then
+            REPO_IS_PRIVATE=true
+        else
+            REPO_BRANCH="${token}"
+        fi
+    done
+}
+
+# manifest_validate_clone_override <value>
+# Errors on anything but unset, PUBLIC_ONLY or NONE, rather than guessing.
+manifest_validate_clone_override() {
+    case "$1" in
+        ""|PUBLIC_ONLY|NONE) ;;
+        *)
+            echo "ERROR: DOME_CLONE_OVERRIDE='$1' is not one of: (unset) PUBLIC_ONLY NONE" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# manifest_should_clone <override> <is_private> <url>
+# Returns 0 to clone, 1 to skip. Unset override always clones. Under
+# PUBLIC_ONLY an unmarked SSH url is an error, so a private repo missing its
+# marker can never pull in or require the account key.
+manifest_should_clone() {
+    local override="$1" is_private="$2" url="$3"
+    case "${override}" in
+        "") return 0 ;;
+        NONE) return 1 ;;
+    esac
+    [[ "${is_private}" == "true" ]] && return 1
+    if [[ "${url}" == git@* || "${url}" == ssh://* ]]; then
+        echo "ERROR: ${url} needs an SSH credential but is not marked PRIVATE_REPO; refusing to clone under DOME_CLONE_OVERRIDE=${override}" >&2
+        exit 1
+    fi
+    return 0
+}

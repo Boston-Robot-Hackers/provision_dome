@@ -43,7 +43,7 @@ roboflowoak
 
 ---
 
-## repos.txt — INI sections, one repo per line: `url dest [branch]`
+## repos.txt — INI sections, one repo per line: `url dest [branch] [PRIVATE_REPO]`
 
 ```
 [root]
@@ -55,6 +55,10 @@ https://github.com/dfki-ric/better_launch.git better_launch devel
 [uros_ws]
 https://github.com/micro-ROS/micro-ROS-Agent.git micro-ROS-Agent
 ```
+
+`PRIVATE_REPO` marks a repo that needs credentials (every `git@` line). It may
+appear before or after the branch and is never treated as one. It has no effect
+until `DOME_CLONE_OVERRIDE` is set (F10).
 
 Sections: `root` → `$DOME_HOME`, `ros_ws` → `$DOME_HOME/ros2_ws/src`, `uros_ws` → `$DOME_HOME/uros_ws/src`.
 

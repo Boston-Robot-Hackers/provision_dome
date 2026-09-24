@@ -147,7 +147,7 @@ for sect in root root-pi ros_ws uros_ws; do
 done
 
 echo "--- clone_section skips already-cloned repos ---"
-grep -q '\[\[ -d "${base_dir}/${dest}" \]\]' "${REPO_DIR}/scripts/bare-metal-build.sh" \
+grep -q '\[\[ -d "${base_dir}/${REPO_DEST}" \]\]' "${REPO_DIR}/scripts/bare-metal-build.sh" \
     && pass "bare-metal-build.sh clone_section checks for existing dest dir before cloning" \
     || fail "bare-metal-build.sh clone_section checks for existing dest dir before cloning"
 

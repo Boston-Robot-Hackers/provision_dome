@@ -1,5 +1,11 @@
 export ROS_DISTRO=$(grep '^ROS_DISTRO=' ~/provision_dome/manifest/config.txt | cut -d= -f2)
-source ~/rosutils/ros2_robot_bashrc.bash
+if [[ -f ~/rosutils/ros2_robot_bashrc.bash ]]; then
+    source ~/rosutils/ros2_robot_bashrc.bash
+else
+    # rosutils is a PRIVATE_REPO, absent under DOME_CLONE_OVERRIDE=PUBLIC_ONLY
+    source /opt/ros/${ROS_DISTRO}/setup.bash
+    [[ -f ~/ros2_ws/install/setup.bash ]] && source ~/ros2_ws/install/setup.bash
+fi
 
 export LD_LIBRARY_PATH=/usr/local/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
 export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH

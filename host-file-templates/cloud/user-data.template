@@ -7,9 +7,10 @@
 #
 # This creates your login user with your SSH key, clones the repo into that
 # user's home, and runs host-setup.sh and bare-metal-base.sh unattended. It
-# deliberately does NOT build the ROS workspace: that step needs GitHub
-# credentials for private repos, which must never be baked into user data.
-# Build by hand after first login — see 02-doc/cloud-howto.md.
+# sets DOME_CLONE_OVERRIDE=PUBLIC_ONLY, so the build clones only public repos
+# and this host needs no GitHub key. Credentials must never be baked into user
+# data. It does NOT run the ROS build; do that by hand after first login —
+# see 02-doc/cloud-howto.md.
 manage_etc_hosts: true
 
 users:
@@ -40,8 +41,8 @@ write_files:
       fi
       chown -R "${HOST_USER}:${HOST_USER}" "${REPO_DIR}"
 
-      printf 'DOME_USER=%s\nDOME_TARGET=cloud\n' "${HOST_USER}" \
-        > "${REPO_DIR}/manifest/user.txt"
+      printf 'DOME_USER=%s\nDOME_TARGET=cloud\nDOME_CLONE_OVERRIDE=PUBLIC_ONLY\n' \
+        "${HOST_USER}" > "${REPO_DIR}/manifest/user.txt"
       chown "${HOST_USER}:${HOST_USER}" "${REPO_DIR}/manifest/user.txt"
 
       cd "${REPO_DIR}"

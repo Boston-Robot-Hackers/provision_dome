@@ -1,8 +1,8 @@
 [root]
-git@github.com:campusrover/rosutils.git rosutils
+git@github.com:campusrover/rosutils.git rosutils PRIVATE_REPO
 https://github.com/luxonis/depthai-python.git depthai-python
 https://github.com/pitosalas/linorobot2_hardware.git linorobot2_hardware
-git@github.com:Boston-Robot-Hackers/j3.git j3
+git@github.com:Boston-Robot-Hackers/j3.git j3 PRIVATE_REPO
 
 [root-pi]
 https://github.com/Seeed-Studio/seeed-linux-dtoverlays.git seeed-linux-dtoverlays
@@ -11,25 +11,25 @@ https://github.com/respeaker/mic_hat.git mic_hat
 
 [ros_ws]
 https://github.com/dfki-ric/better_launch.git better_launch devel
-git@github.com:campusrover/dome.git dome
-git@github.com:Boston-Robot-Hackers/dome2.git dome2
-git@github.com:Boston-Robot-Hackers/dome_control.git dome_control
-git@github.com:Boston-Robot-Hackers/dome_mission.git dome_mission
-git@github.com:Boston-Robot-Hackers/dome_nav.git dome_nav
-git@github.com:Boston-Robot-Hackers/dome_nav_msgs.git dome_nav_msgs
-git@github.com:Boston-Robot-Hackers/dome_semantic.git dome_semantic
-git@github.com:Boston-Robot-Hackers/dome_semantic_msgs.git dome_semantic_msgs
-git@github.com:Boston-Robot-Hackers/dome_telemetry.git dome_telemetry
-git@github.com:Boston-Robot-Hackers/dome_vision.git dome_vision
-git@github.com:Boston-Robot-Hackers/dome_voice.git dome_voice
-git@github.com:Boston-Robot-Hackers/explore.git explore
+git@github.com:campusrover/dome.git dome PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome2.git dome2 PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_control.git dome_control PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_mission.git dome_mission PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_nav.git dome_nav PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_nav_msgs.git dome_nav_msgs PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_semantic.git dome_semantic PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_semantic_msgs.git dome_semantic_msgs PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_telemetry.git dome_telemetry PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_vision.git dome_vision PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/dome_voice.git dome_voice PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/explore.git explore PRIVATE_REPO
 https://github.com/hippo5329/ldlidar_stl_ros2.git ldlidar_stl_ros2
-git@github.com:pitosalas/linorobot2.git linorobot2
-git@github.com:Boston-Robot-Hackers/metawtf.git metawtf
+git@github.com:pitosalas/linorobot2.git linorobot2 PRIVATE_REPO
+git@github.com:Boston-Robot-Hackers/metawtf.git metawtf PRIVATE_REPO
 https://github.com/micro-ROS/micro-ROS-Agent.git micro-ROS-Agent
 https://github.com/micro-ROS/micro_ros_msgs.git micro_ros_msgs
-git@github.com:Boston-Robot-Hackers/ros2diag.git ros2diag
-git@github.com:pitosalas/status_panel.git status_panel
+git@github.com:Boston-Robot-Hackers/ros2diag.git ros2diag PRIVATE_REPO
+git@github.com:pitosalas/status_panel.git status_panel PRIVATE_REPO
 
 [uros_ws]
 https://github.com/micro-ROS/micro-ROS-Agent.git micro-ROS-Agent

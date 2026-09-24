@@ -28,17 +28,19 @@ RUN mkdir -p -m 0700 /root/.ssh && ssh-keyscan github.com >> /root/.ssh/known_ho
 
 RUN --mount=type=ssh \
     set -euo pipefail; \
+    source /manifest/lib.sh; \
     clone_section() { \
       local section="$1"; \
       local base_dir="$2"; \
       mkdir -p "${base_dir}"; \
-      while read -r repo dest branch; do \
-        [[ -z "${repo}" ]] && continue; \
-        echo "Cloning ${repo} -> ${base_dir}/${dest}"; \
-        if [[ -n "${branch}" ]]; then \
-          git clone --branch "${branch}" "${repo}" "${base_dir}/${dest}" || { echo "ERROR: failed to clone ${repo}"; exit 1; }; \
+      while read -r line; do \
+        [[ -z "${line}" ]] && continue; \
+        manifest_parse_repo "${line}"; \
+        echo "Cloning ${REPO_URL} -> ${base_dir}/${REPO_DEST}"; \
+        if [[ -n "${REPO_BRANCH}" ]]; then \
+          git clone --branch "${REPO_BRANCH}" "${REPO_URL}" "${base_dir}/${REPO_DEST}" || { echo "ERROR: failed to clone ${REPO_URL}"; exit 1; }; \
         else \
-          git clone "${repo}" "${base_dir}/${dest}" || { echo "ERROR: failed to clone ${repo}"; exit 1; }; \
+          git clone "${REPO_URL}" "${base_dir}/${REPO_DEST}" || { echo "ERROR: failed to clone ${REPO_URL}"; exit 1; }; \
         fi; \
       done < <(awk -v s="${section}" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' /manifest/repos.txt); \
     }; \

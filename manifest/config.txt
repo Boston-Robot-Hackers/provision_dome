@@ -15,3 +15,8 @@ DOME_MODE=native
 # DOME_DESKTOP=none|vnc — vnc installs an xfce/TigerVNC/noVNC desktop for
 # tools needing a real X display (e.g. rviz2). Off by default; see cloud-howto.md.
 DOME_DESKTOP=none
+# DOME_CLONE_OVERRIDE — unset by default: clone every repo in repos.txt. Set it
+# in manifest/user.txt (or the environment) to change that:
+#   PUBLIC_ONLY  skip repos marked PRIVATE_REPO (no GitHub credential needed)
+#   NONE         clone nothing
+# DOME_CLONE_OVERRIDE=PUBLIC_ONLY
