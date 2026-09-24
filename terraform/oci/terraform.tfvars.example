@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored so your
+# tenancy OCID never lands in the repo.
+#
+# Root-compartment resources use the tenancy OCID as the compartment. Read it
+# from your OCI config:
+#   grep '^tenancy=' ~/.oci/config
+compartment_ocid = "ocid1.tenancy.oc1..REPLACE_ME"
+
+# Optional overrides (defaults shown):
+# region              = "us-ashburn-1"
+# availability_domain = "OePW:US-ASHBURN-AD-1"
+# instance_name       = "dome-cloud-1"
+# ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+# ocpus               = 4
+# memory_gb           = 24
+# boot_volume_gb      = 100

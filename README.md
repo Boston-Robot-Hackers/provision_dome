@@ -34,6 +34,7 @@ and network speed to give a useful number.
 | **Raspberry Pi** | You have a Pi and want a working robot. This is the normal choice. |
 | **Virtual machine** | You want to develop without Pi hardware. No camera, lidar, or motors. |
 | **Docker** | You want the robot to run from a prebuilt container image instead of a local install. Requires a Mac to build the image. |
+| **Cloud VM** | You want a remote dev host reachable from anywhere. No hardware; visualize over SSH. |
 
 Then follow that guide from top to bottom. Each one is self-contained — you
 never need to jump between them.
@@ -41,6 +42,7 @@ never need to jump between them.
 - **Raspberry Pi** → [`02-doc/pi-howto.md`](02-doc/pi-howto.md)
 - **Virtual machine** → [`02-doc/vm-howto.md`](02-doc/vm-howto.md)
 - **Docker** → [`02-doc/docker-howto.md`](02-doc/docker-howto.md)
+- **Cloud VM** → [`02-doc/cloud-howto.md`](02-doc/cloud-howto.md)
 
 Undecided? [`02-doc/howto.md`](02-doc/howto.md) compares them side by side.
 

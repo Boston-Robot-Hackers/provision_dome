@@ -204,12 +204,21 @@ Expected: `kilted`, ros2 usage, list of cloned repos.
 
 All commands below run on the **VM**.
 
-**Pull latest repo changes and rebuild:**
+**Update provision_dome and rebuild:**
 
 ```sh
 cd ~/provision_dome
 git pull
-sudo scripts/bare-metal-build.sh   # re-clones changed repos, rebuilds workspace
+sudo scripts/bare-metal-build.sh   # clones newly added repos, rebuilds workspace
+```
+
+The build script **skips any repo that is already cloned**, so this does not
+update the ROS repos already on disk. To update one, pull it by hand, then
+rebuild:
+
+```sh
+git -C ~/ros2_ws/src/<repo> pull
+sudo ~/provision_dome/scripts/bare-metal-build.sh
 ```
 
 Open a new terminal / SSH session afterward to pick up the rebuilt workspace
@@ -293,7 +302,7 @@ sudo scripts/bare-metal-build.sh
 cd ~/ros2_ws
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y --skip-keys="ament_python gazebo_ros_pkgs"
-colcon build --symlink-install --packages-skip depthai_rospi
+colcon build --packages-skip depthai_rospi
 ```
 
 **`ERROR: 'X' not set in manifest/config.txt`** — required field missing from manifest:

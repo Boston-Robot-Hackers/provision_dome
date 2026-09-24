@@ -1,12 +1,17 @@
 # OCI Howto: Oracle Cloud A1 Instance to Native ROS
 
-Set up an Oracle Cloud Ampere A1 instance and provision the dome stack on
-it **with the repo as it is today**, before F07's `DOME_TARGET=cloud` and
-cloud-init template exist.
+**F07 targets OCI A1 (Ampere, arm64) as its cloud host.** This runbook sets
+up that instance and provisions the dome stack on it. It is a working
+assumption — if OCI doesn't work out (capacity, console, billing), see the
+fallbacks in `02-doc/notes.md`, *Dev host options*, and we revisit.
 
-This is an interim runbook. Running it is also F07 T01 — record anything
-that goes wrong in `02-doc/notes.md`. Once F07 lands, steps 5 and 6 largely
-disappear and this folds into `02-doc/cloud-howto.md`.
+**Running this is F07 TF07.0** — the manual bring-up that confirms F07's
+predicted breakages on a real instance. Record anything that goes wrong in
+`02-doc/notes.md`. These steps deliberately provision with today's manual
+workarounds (`DOME_USER=ubuntu`, `DOME_TARGET=vm`, hand-added swap) rather
+than F07's cloud-init flow, so TF07.0 exercises the baseline the F07 code
+addresses. Once TF07.0 validates, this runbook adopts F07's cloud-init
+template and `DOME_TARGET=cloud`, and folds into `02-doc/cloud-howto.md`.
 
 **The trick that makes today's scripts work:** set `DOME_USER=ubuntu`.
 That's the user Oracle already created, with your SSH key and passwordless
@@ -101,7 +106,7 @@ sudo apt update && sudo apt -y upgrade
 ```
 
 **Add swap by hand.** Today the repo creates swap only when
-`DOME_TARGET=pi`; F07 T03 changes that.
+`DOME_TARGET=pi`; F07 TF07.2 changes that.
 
 ```sh
 sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile

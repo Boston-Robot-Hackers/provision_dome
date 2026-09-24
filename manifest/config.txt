@@ -2,10 +2,16 @@
 ROS_DISTRO=kilted
 UBUNTU_CODENAME=noble
 DOME_USER=robot
-# DOME_TARGET=pi|vm — pi installs Pi-hardware packages/repos/overlays; vm skips them.
+# DOME_TARGET=pi|vm|cloud — pi installs Pi-hardware packages/repos/overlays;
+# vm and cloud skip them. cloud additionally enables swap (like pi) for a
+# small cloud shape; see 02-doc/cloud-howto.md.
 DOME_TARGET=pi
-# SWAP_SIZE_MB — Pi-only swapfile size in MB, guards against colcon build OOM. 0 disables.
+# SWAP_SIZE_MB — swapfile size in MB for pi and cloud, guards against colcon
+# build OOM. Not created for vm. 0 disables.
 SWAP_SIZE_MB=2048
 # DOME_MODE=native|docker — native skips Docker install/dome.service (Scenarios 1/2).
 # Only Scenario 3 (docker-howto.md) sets DOME_MODE=docker in manifest/user.txt.
 DOME_MODE=native
+# DOME_DESKTOP=none|vnc — vnc installs an xfce/TigerVNC/noVNC desktop for
+# tools needing a real X display (e.g. rviz2). Off by default; see cloud-howto.md.
+DOME_DESKTOP=none

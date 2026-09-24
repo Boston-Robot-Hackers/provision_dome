@@ -148,7 +148,7 @@ if [[ "${DOME_TARGET}" == "pi" ]]; then
     echo "ReSpeaker overlay already present; skipping."
   fi
 else
-  echo "DOME_TARGET=vm — skipping ReSpeaker overlay build (Pi-only, needs /boot/firmware)."
+  echo "DOME_TARGET=${DOME_TARGET} — skipping ReSpeaker overlay build (Pi-only, needs /boot/firmware)."
 fi
 
 if [[ "${DOME_MODE}" == "docker" ]]; then

@@ -25,14 +25,17 @@ DOME_TARGET="${DOME_TARGET:-${_DOME_TARGET_FILE:-${_DOME_TARGET_DEFAULT}}}"
 _SWAP_SIZE_MB_DEFAULT=$(manifest_config SWAP_SIZE_MB "${MANIFEST_DIR}/config.txt")
 _SWAP_SIZE_MB_FILE=$(grep '^[[:space:]]*SWAP_SIZE_MB=' "${MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
 SWAP_SIZE_MB="${SWAP_SIZE_MB:-${_SWAP_SIZE_MB_FILE:-${_SWAP_SIZE_MB_DEFAULT}}}"
+_DOME_DESKTOP_DEFAULT=$(manifest_config DOME_DESKTOP "${MANIFEST_DIR}/config.txt")
+_DOME_DESKTOP_FILE=$(grep '^[[:space:]]*DOME_DESKTOP=' "${MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
+DOME_DESKTOP="${DOME_DESKTOP:-${_DOME_DESKTOP_FILE:-${_DOME_DESKTOP_DEFAULT}}}"
 
 echo "==> Starting bare-metal-base.sh"
 echo "==> ROS_DISTRO=${ROS_DISTRO}  UBUNTU_CODENAME=${UBUNTU_CODENAME}  DOME_TARGET=${DOME_TARGET}  SWAP_SIZE_MB=${SWAP_SIZE_MB}"
 echo ""
 
-# --- Swapfile (Pi only) ---
+# --- Swapfile (pi and cloud) ---
 echo "==> [1/9] Setting up swapfile"
-if [[ "${DOME_TARGET}" == "pi" ]]; then
+if [[ "${DOME_TARGET}" == "pi" || "${DOME_TARGET}" == "cloud" ]]; then
     if [[ "${SWAP_SIZE_MB}" -eq 0 ]]; then
         echo "  SWAP_SIZE_MB=0, skipping"
     elif swapon --show=NAME --noheadings 2>/dev/null | grep -qx "/swapfile"; then
@@ -47,7 +50,7 @@ if [[ "${DOME_TARGET}" == "pi" ]]; then
         echo "  /swapfile created (${SWAP_SIZE_MB}MB) and activated"
     fi
 else
-    echo "  DOME_TARGET=${DOME_TARGET}, skipping (Pi only)"
+    echo "  DOME_TARGET=${DOME_TARGET}, skipping (swap is for pi and cloud only)"
 fi
 echo "==> [1/9] Swapfile done"
 
@@ -89,6 +92,13 @@ APT_PKGS=$(awk '/^\[apt\]/{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/' "${MANIFE
 if [[ "${DOME_TARGET}" == "pi" ]]; then
     APT_PKGS="${APT_PKGS}
 $(awk '/^\[apt-pi\]/{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/' "${MANIFEST_DIR}/packages.txt")"
+fi
+if [[ "${DOME_DESKTOP}" == "vnc" ]]; then
+    echo "  DOME_DESKTOP=vnc, adding [apt-desktop] packages"
+    APT_PKGS="${APT_PKGS}
+$(awk '/^\[apt-desktop\]/{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/' "${MANIFEST_DIR}/packages.txt")"
+else
+    echo "  DOME_DESKTOP=${DOME_DESKTOP}, skipping [apt-desktop] packages"
 fi
 echo "  packages: $(echo "$APT_PKGS" | wc -l) items"
 echo "$APT_PKGS" | xargs apt-get install -y --no-install-recommends

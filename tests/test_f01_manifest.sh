@@ -88,10 +88,9 @@ echo "--- dirs.txt non-empty ---"
 count=$(grep -c '^[^#[:space:]]' "${MANIFEST_DIR}/dirs.txt" || true)
 [[ "$count" -gt 0 ]] && pass "dirs.txt has $count entries" || fail "dirs.txt empty"
 
-echo "--- tools.txt has mcfly, claude-code, kimi-code ---"
+echo "--- tools.txt has mcfly, claude-code ---"
 assert_field "${MANIFEST_DIR}/tools.txt" "[mcfly]"
 assert_field "${MANIFEST_DIR}/tools.txt" "[claude-code]"
-assert_field "${MANIFEST_DIR}/tools.txt" "[kimi-code]"
 
 echo "--- bare-metal-base.sh supports curl-bash tool method ---"
 grep -q 'curl-bash' "${REPO_DIR}/scripts/bare-metal-base.sh" \
@@ -105,7 +104,7 @@ grep -q 'run_as_user' "${REPO_DIR}/scripts/bare-metal-base.sh" \
 grep -q 'sudo -u "\${DOME_USER}"' "${REPO_DIR}/scripts/bare-metal-base.sh" \
     && pass "bare-metal-base.sh can run tool installers as DOME_USER" \
     || fail "bare-metal-base.sh can run tool installers as DOME_USER"
-for tool in claude-code kimi-code; do
+for tool in claude-code; do
     val=$(manifest_field "$tool" run_as_user "${MANIFEST_DIR}/tools.txt")
     [[ "$val" == "true" ]] \
         && pass "tools.txt [$tool] run_as_user=true" \

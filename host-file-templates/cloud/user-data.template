@@ -1,0 +1,52 @@
+#cloud-config
+# First-boot template for a cloud dev host (F07, DOME_TARGET=cloud).
+#
+# Paste a filled-in copy into the provider's "user data" / cloud-init field
+# when creating an Ubuntu 24.04 instance. Replace the two REPLACE_WITH_...
+# placeholders first. See 02-doc/cloud-howto.md.
+#
+# This creates your login user with your SSH key, clones the repo into that
+# user's home, and runs host-setup.sh and bare-metal-base.sh unattended. It
+# deliberately does NOT build the ROS workspace: that step needs GitHub
+# credentials for private repos, which must never be baked into user data.
+# Build by hand after first login — see 02-doc/cloud-howto.md.
+manage_etc_hosts: true
+
+users:
+  - name: REPLACE_WITH_HOST_USER
+    groups: sudo
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - REPLACE_WITH_SSH_PUBLIC_KEY
+
+packages:
+  - ca-certificates
+  - git
+
+write_files:
+  - path: /usr/local/sbin/dome-firstboot.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      HOST_USER="REPLACE_WITH_HOST_USER"
+      REPO_URL="https://github.com/Boston-Robot-Hackers/provision_dome.git"
+      REPO_DIR="/home/${HOST_USER}/provision_dome"
+
+      if [[ ! -d "${REPO_DIR}" ]]; then
+        git clone "${REPO_URL}" "${REPO_DIR}"
+      fi
+      chown -R "${HOST_USER}:${HOST_USER}" "${REPO_DIR}"
+
+      printf 'DOME_USER=%s\nDOME_TARGET=cloud\n' "${HOST_USER}" \
+        > "${REPO_DIR}/manifest/user.txt"
+      chown "${HOST_USER}:${HOST_USER}" "${REPO_DIR}/manifest/user.txt"
+
+      cd "${REPO_DIR}"
+      scripts/host-setup.sh
+      scripts/bare-metal-base.sh
+
+runcmd:
+  - [bash, /usr/local/sbin/dome-firstboot.sh]

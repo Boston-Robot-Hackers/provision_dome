@@ -38,6 +38,13 @@ wget
 i2c-tools
 raspi-config
 
+[apt-desktop]
+dbus-x11
+novnc
+tigervnc-standalone-server
+websockify
+xfce4
+
 [ros]
 ament-cmake-clang-format
 ament-cmake-mypy

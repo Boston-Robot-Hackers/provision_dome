@@ -94,11 +94,11 @@ Only `method = curl-sh` supported: `curl -LSfs <url> | sh -s -- <args>`.
 ## colcon.txt — flat key=value
 
 ```
-flags         = --symlink-install
 packages_skip = depthai_rospi pkg2
 ```
 
-Multiple skip packages are space-separated.
+Multiple skip packages are space-separated. `flags` is optional extra
+`colcon build` arguments; unset by default (full, non-symlink install).
 
 ---
 

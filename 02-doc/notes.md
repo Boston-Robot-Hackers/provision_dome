@@ -208,3 +208,228 @@ A box on the robot's home network changes more than the cost.
   $300 once, ~$2/month power, no start/stop routine, joins the robot's
   graph without F08, with Tailscale for access from away. Cheaper than
   DigitalOcean always-on within about six months.
+
+## TF07.0 — OCI A1 bring-up log (started 2026-09-23)
+
+Live log of the manual OCI A1 (arm64) bring-up, following `oci-howto.md`.
+Purpose: confirm F07's four predicted breakages and capture friction so the
+docs describe the real experience. Filled in step by step as it happens.
+
+### The four predicted breakages — verdict
+
+| # | Predicted problem | Occurred? | Workaround needed |
+|---|---|---|---|
+| 1 | Login user is `root`/`ubuntu`, not `DOME_USER` | Yes — login is `ubuntu` | `DOME_USER=ubuntu` sufficed. Plus a **client-side** snag: a Mac `~/.ssh/config` `Host *` `IdentityFile` masked the instance key; `ssh -i … -o IdentitiesOnly=yes` fixed it. |
+| 2 | Repo cloned in wrong home → empty `ROS_DISTRO` | **Yes, transiently — `ROS_DISTRO` was unset in a new shell after the build** | Resolved: a fresh shell later printed `kilted` and `ros2 pkg list` works. *Not* the predicted cause (repo was in the right home). The root cause was not diagnosed; likely the earlier runs failed before `bare-metal-build.sh` installed `bashrc`, and the final successful run installed it (unverified). |
+| 3 | New user unreachable (no `authorized_keys`) | No | Reused the pre-existing `ubuntu` (Terraform installed the key), so no new user was created. |
+| 4 | No swap on the cloud shape | Yes — bare box has none | Add `/swapfile` by hand (F07 TF07.2 automates this for `DOME_TARGET=cloud`). Build succeeded anyway — 24 GB RAM is ample. |
+
+Note: `oci-howto.md` sidesteps #1–#3 with `DOME_USER=ubuntu` and adds swap
+by hand for #4, so on OCI we record whether those workarounds sufficed — they
+did. New finding this run: a **host-specific GitHub key is load-bearing** —
+`bare-metal-build.sh` clones private repos as `DOME_USER` (`sudo -u`), so the
+key must live in that user's `~/.ssh`. Deleting it (during the "don't copy your
+personal key" cleanup) left the box with only `authorized_keys`, and the build
+died at the first clone (`campusrover/rosutils`, `Permission denied
+(publickey)`). Fix: generate a host key named `~/.ssh/id_ed25519` on the VM
+(default name → auto-offered, no ssh config needed) and add it to GitHub as
+`oci-dome`; verified with both `ssh -T` and `sudo -u ubuntu ssh -T`. **Doc
+fix:** `oci-howto.md`/`cloud-howto.md` should stress the key must be the
+*DOME_USER's* key and use the default filename, and warn that removing it
+breaks the build at the first private clone.
+
+### RESOLVED — `ROS_DISTRO` unset in a new shell after a full build (2026-09-24)
+
+**Closed 2026-09-24:** smoke test on `dome-cloud-1` in a fresh shell —
+`echo "$ROS_DISTRO"` → `kilted`; `ros2 pkg list | grep dome` lists all 11
+`dome*` packages (incl. `dome_telemetry`); `swapon --show` lists `/swapfile`
+(4G). Cause of the earlier empty value was not pinned down (see table, #2).
+The original diagnosis notes are kept below.
+
+After `bare-metal-build.sh` completed, **a new login shell still has
+`ROS_DISTRO` undefined** on `dome-cloud-1`. This is breakage #2, but the
+predicted cause does **not** apply here:
+
+- The repo *is* at `~/provision_dome` (ubuntu's home), which matches the
+  hardcoded path in `manifest/bashrc:1`.
+- `manifest/config.txt:2` has an uncommented `ROS_DISTRO=kilted`, exactly what
+  `bashrc:1` greps: `export ROS_DISTRO=$(grep '^ROS_DISTRO=' ~/provision_dome/manifest/config.txt | cut -d= -f2)`.
+- The build itself resolved `ROS_DISTRO=kilted` fine (script line 34).
+
+So the grep *should* return `kilted` at shell startup. Something else is
+breaking the chain. **Diagnostics to run next session (on the box):**
+
+- `head -2 ~/.bashrc` — is it actually `manifest/bashrc` (did the build's
+  install step at `bare-metal-build.sh:122-124` run)? If the earlier
+  clone-failed run left the build incomplete and the good run also errored
+  before line 122 (e.g. a `colcon build` failure under `set -e`), the bashrc
+  was never installed.
+- `grep -n bashrc ~/.profile` — does the login shell still source `~/.bashrc`?
+  (Ubuntu's default `~/.profile` does; confirm the build didn't replace
+  `~/.profile`.)
+- Run bashrc line 1 by hand: `grep '^ROS_DISTRO=' ~/provision_dome/manifest/config.txt | cut -d= -f2` — does it print `kilted`?
+- `bash -lc 'echo "[$ROS_DISTRO]"'` vs an interactive shell — rule out
+  non-interactive shells (which don't source `.bashrc`).
+- Check whether `source ~/rosutils/ros2_robot_bashrc.bash` (bashrc:2) errors
+  and aborts the rest of `.bashrc` — though line 1 sets `ROS_DISTRO` *before*
+  it, so this shouldn't zero it out.
+
+Most likely: the bashrc was never installed because the build didn't reach its
+tail (a `colcon` failure), i.e. "done" may have meant "stopped," not
+"succeeded." Confirm the build's exit status and the `colcon build` summary
+line next session before closing TF07.0.
+
+### Step-by-step log
+
+- **Step 1 (Account), 2026-09-23** — Signed up at oracle.com/cloud/free,
+  **completed ~9:25**. Attempted the pay-as-you-go upgrade immediately and
+  **could not**: the console reports the upgrade is unavailable because
+  **tenancy provisioning is still in progress**. Waiting for provisioning to
+  complete before retrying.
+  - **The console becomes usable long before the billing upgrade unblocks.**
+    Compute → Instances → Create instance was fully functional within the
+    first hour, but the **pay-as-you-go upgrade still reported "account
+    provisioning is in progress"** even after ~45+ min (checked ~22:10).
+    So "console works" ≠ "account provisioned for billing" — they clear on
+    different timelines. Proceeded on the **Always Free** tier; the upgrade
+    is *not* a prerequisite to start and can be retried later (likely
+    signalled by an email). *(Approx times; signup ~21:25.)*
+  - **The "account is ready" email is the real signal** that the billing
+    upgrade has unblocked — it arrived and the pay-as-you-go upgrade then
+    worked. Full provisioning (to upgrade-ready) took ~<duration pending>
+    from signup ~21:25. Doc fix: tell users to wait for that email before
+    trying to upgrade, and to just start the instance on Always Free
+    meanwhile.
+  - **The upgrade itself is also asynchronous** — after submitting the
+    pay-as-you-go upgrade there is a further processing delay before it
+    completes. It does not block instance creation (Always Free A1 runs
+    regardless), so don't wait on it. Total OCI onboarding involves *three*
+    separate waits: tenancy provisioning → billing-upgrade-ready (email) →
+    upgrade processing.
+
+### Headline finding — the OCI console is the real obstacle
+
+The manual OCI console bring-up is **error-prone and circular**, not because
+of our scripts but because of the console itself: wrong defaults hidden
+behind Edit buttons (Oracle Linux, 1 OCPU, no public IP, no SSH key),
+spurious "incompatible settings" warnings on a valid image/shape, a
+public-IP step that has to be redone after creation, and three separate
+onboarding waits. A first-time operator loops for a long time before a box
+even exists.
+
+**Conclusion:** F07's "simplify provisioning" goal is not served by
+documenting this click-path in `oci-howto.md`. It should be **scripted** —
+OCI CLI (`oci compute instance launch ...`) or, better, **Terraform** (OCI
+provider) for a declarative, reproducible, tearable bring-up. This matches
+the "scripted up/down" the F07 spec already anticipated. Likely a new F07
+task (or a follow-on feature): a `terraform/` config or an `oci-up.sh` that
+creates VCN+subnet+instance with the right image/shape/public-IP/SSH-key in
+one command. Cost: a one-time OCI API-key setup (`oci setup config`).
+
+### API credentials (for the Terraform pivot)
+
+- oci-cli was installed and `oci setup config` run, but it produced a
+  **malformed `~/.oci/config`**: a duplicate `[DEFAULT]` section whose header
+  was written as `DEFAULT]` (missing the leading `[`), which made oci-cli
+  crash on every call. Fixed by keeping only the first, complete section
+  (backup at `~/.oci/config.bak`). After that, `oci iam
+  availability-domain list` returned the three Ashburn ADs — auth confirmed.
+  Region `us-ashburn-1`. **Doc fix:** warn that the setup can emit a broken
+  config and to validate with a real API call before trusting it.
+
+### Unpredicted friction
+
+- **A1 capacity was available in all three Ashburn ADs** at create time
+  (2026-09-23 ~21:53) — the console banner said so explicitly. The dreaded
+  "Out of host capacity" did not occur on this run.
+
+- **Console defaults are wrong for us, and the way to change them is hidden.**
+  The create-instance form defaults to **Oracle Linux 9** and the tiny x86
+  **VM.Standard.E2.1.Micro** shape. Both must be changed (Ubuntu 24.04 +
+  Ampere A1.Flex), but the image/shape choices are only reachable by
+  clicking an **Edit** button on the "Image and shape" block — not obvious,
+  and easy to click Create with the wrong OS. **Doc fix:** oci-howto Step 4
+  should say "click Edit on Image and shape, then change Image to Canonical
+  Ubuntu 24.04 and Shape to VM.Standard.A1.Flex" explicitly.
+
+- **Only "Minimal" Ubuntu images exist for aarch64 in this region.** The
+  aarch64 24.04 options offered were all **Minimal** (22.04 / 24.04 / 26.04
+  Minimal aarch64); no standard aarch64 24.04 image was listed. Chose
+  **Canonical Ubuntu 24.04 Minimal aarch64**. Minimal still has cloud-init,
+  apt, systemd, and SSH, and `host-setup.sh` installs its own deps, so this
+  should be fine — but if `bare-metal-base.sh` fails on a base package a full
+  image would have had, Minimal is the suspect. **Doc fix:** oci-howto should
+  say to pick "Canonical Ubuntu 24.04 ... aarch64" (Minimal is expected on A1)
+  and must NOT pick 26.04 (wrong codename vs. noble).
+
+  - **Update (2026-09-24): a full, non-Minimal `Canonical-Ubuntu-24.04-aarch64`
+    image now exists** in Ashburn (`...-2026.09.18-0`, `operating_system_version
+    = "24.04"`), alongside the Minimal ones (`24.04 Minimal aarch64`). The
+    Terraform config selects the full image, so the Minimal-only worry above is
+    moot on the Terraform path. The console "Minimal only" observation may have
+    been a console-listing artifact or has since changed.
+
+### Terraform pivot landed (2026-09-24)
+
+The scripted bring-up the headline finding called for is now in
+`terraform/oci/` (task **TF07.9**, done). It stands up a **bare** box — VCN,
+public subnet, internet gateway, an **SSH-only** security list, a
+`VM.Standard.A1.Flex` at **4 OCPU / 24 GB** (the full Always-Free arm
+allowance), a 100 GB boot volume, and a public IP with `~/.ssh/id_ed25519.pub`.
+
+- **No cloud-init, no swap on purpose** — TF07.0 still validates the four
+  baseline breakages by running the scripts by hand as `ubuntu`, per
+  `oci-howto.md`. Terraform only removes the console from the create step.
+- **Validated without spending an apply:** `terraform fmt -check`,
+  `terraform validate`, and `terraform plan` all pass. Plan = *6 to add*;
+  the image data source resolves to `Canonical-Ubuntu-24.04-aarch64-2026.09.18-0`;
+  auth via the working `~/.oci/config` succeeds.
+- **The half-built console instance** (`instance-20260923-2216`) is already
+  **TERMINATED** — no cleanup needed.
+- **Second box:** the free arm allowance is shared across all A1 instances, so
+  a second full-size box is billed. Decision: keep box #1 at the full 24 GB and
+  pay for #2 (≈$0 if stopped between sessions). `terraform workspace` +
+  `-var instance_name=...` stands up a non-colliding second box.
+- **`terraform apply` succeeded (2026-09-24)** — 6 resources in ~50s, instance
+  `RUNNING`, ephemeral public IP assigned. Auth/image/shape all as planned. The
+  scripted path is dramatically less error-prone than the console.
+
+- **SSH friction — client-side key selection, not the box (doc fix).** First
+  `ssh ubuntu@<ip>` gave `Permission denied (publickey)` even though the
+  instance had the right key (installed-key fingerprint matched
+  `~/.ssh/id_ed25519.pub` exactly). Cause: a local `~/.ssh/config` `Host *`
+  block forcing a different `IdentityFile`, plus an agent holding only an
+  unrelated RSA key, so `id_ed25519` was never reliably offered. Fix that
+  worked: `ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes ubuntu@<ip>`.
+  **Doc fix:** `oci-howto.md` / `cloud-howto.md` should give the explicit
+  `-i ... -o IdentitiesOnly=yes` form (or a `~/.ssh/config` host block) so a
+  broad `Host *` identity setting doesn't mask the instance key. Confirms
+  breakage **#1** (login user is `ubuntu`, key-only) — the workaround sufficed
+  once the right key was offered.
+
+- **Default user is `ubuntu`** on the Canonical Ubuntu image (not `opc`, which
+  is Oracle Linux only; root login disabled).
+
+- **Next:** finish TF07.0's baseline run on the box (swap by hand, clone,
+  `host-setup.sh` + `bare-metal-base.sh` + host GitHub key +
+  `bare-metal-build.sh` + smoke test) and fill in the breakage table.
+
+- **Follow-up wanted (user request, 2026-09-24): make the login username a
+  parameter.** Today the Terraform config uses the image's fixed default user
+  (`ubuntu`); the desired end state is a `host_user` variable so the operator
+  chooses the login name. On OCI the username is baked into the image, so a
+  custom name means wiring cloud-init into the Terraform config to create that
+  user with the SSH key — i.e. folding F07's `host-file-templates/cloud/
+  user-data.template` (`DOME_USER`) into `terraform/oci/`. This is the "wire
+  the F07 cloud-init flow into Terraform" task already anticipated; capture it
+  as a task (TF07.10) when we move past the TF07.0 baseline.
+
+- **Pay-as-you-go upgrade is blocked during initial provisioning.**
+  `oci-howto.md` Step 1 presents the upgrade as an immediate action
+  ("Billing → *Upgrade and Manage Payment*"), but a brand-new tenancy is
+  still provisioning right after signup and the console refuses the upgrade
+  until that finishes. **Doc fix:** Step 1 should say to wait for tenancy
+  provisioning to complete before attempting the upgrade, and note the
+  option can be hard to locate (label/path varies: Billing & Cost
+  Management → "Upgrade and Manage Payment" / "Payment Method", a top-banner
+  "Upgrade" button, or the profile menu).

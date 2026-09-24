@@ -3,10 +3,10 @@
 ## F07 — Cloud host as a remote ROS 2 development box
 
 **Priority**: Medium
-**Done:** no
+**Done:** yes
 **Tasks File Created:** yes
-**Tests Written:** no
-**Test Passing:** no
+**Tests Written:** yes
+**Test Passing:** yes
 **Description**: Provision a rented cloud VM as a self-contained ROS 2
 development host, with as little hand work as possible, reachable from the
 Mac over SSH. Visualization is via Foxglove or an optional browser desktop,
@@ -80,11 +80,12 @@ already in `manifest/packages.txt` `[ros]` and needs no GUI stack, so
 visualization path. The noVNC desktop (`DOME_DESKTOP=vnc`) is kept for
 tools that need a real X display, like `rviz2`, but is off by default.
 
-**Decision — both arm64 and x86_64 are allowed.** Nothing in the native
-path is arm64-only. `manifest/bashrc:4` does add an `aarch64` library path,
-which is harmless on x86. An **arm64 host is still worth preferring** when
-the price is comparable: it catches arm-only build failures before the Pi
-does. T01 must run on the architecture you intend to use.
+**Decision — arm64 on OCI A1.** F07 targets arm64, the Pi's architecture,
+so the build validated on the cloud host is the one the robot runs and
+arm-only build failures surface before the Pi hits them. The code stays
+arch-neutral — nothing in the native path is arm64-only, and
+`manifest/bashrc:4`'s `aarch64` library path is harmless on x86 — so a
+fallback to an x86_64 provider needs no code change. TF07.0 runs on arm64.
 
 **Decision — single user.** Unchanged from the original spec.
 
@@ -119,31 +120,29 @@ revisit if missed.
 - `DOME_TARGET=pi` and `DOME_TARGET=vm` behavior, and `DOME_MODE`.
 - `manifest/bashrc` — no DDS or networking settings; that is F08.
 
-## Provider choice
+## Provider choice — OCI A1 (arm64)
 
-Research and pricing are in `02-doc/notes.md`, *Dev host options*. In
-short, at a 4-core size:
+**Decision: F07 targets Oracle Cloud (OCI) A1 Ampere — arm64,
+pay-as-you-go, stopped between sessions** (about $0 for occasional use).
+arm64 is the Pi's architecture, so the build validated here is the one the
+robot runs; the cost is OCI's fiddly console and occasional A1 capacity
+shortages. Pricing and the alternatives are in `02-doc/notes.md`, *Dev host
+options*.
 
-- **OCI A1 pay-as-you-go, stopped between sessions** — about $0 for
-  occasional use, arm64; the cost is a complex console.
-- **DigitalOcean** — simplest to operate: $48/month left running, or a few
-  dollars a month with snapshot-and-destroy.
-- **fly.io, AWS, and Oracle's 1 GB free shape** are ruled out.
+**This is a working assumption — if OCI doesn't work out** (capacity,
+console, billing), the fallbacks are recorded in `notes.md`: DigitalOcean
+(x86_64, simplest console) or a refurbished mini PC on the robot's home
+network (plain Scenario 2 via `vm-howto.md`, and it joins the robot's graph
+without F08). Revisit then. The provisioning code (`DOME_TARGET=cloud`,
+swap, the cloud-init template) is architecture- and provider-neutral, so a
+switch is a docs change, not a code rewrite.
 
-**Open question — is a cloud host the right answer at all?** A refurbished
-mini PC on the robot's home network (~$300 once, ~$2/month power) needs no
-cloud-init, joins the robot's graph without F08, and is reachable from away
-via Tailscale. It is plain Scenario 2 (`vm-howto.md`), so choosing it would
-shrink F07 to little more than a remote-access note. Decide before T01.
+Scripted `up`/`down` (OCI stop/start) is a likely later addition to scope.
 
-If the cloud route is chosen, scripted `up`/`down` (stop/start on OCI, or
-snapshot/destroy/restore on DigitalOcean) is a likely addition to scope.
-
-**Interim runbook:** `02-doc/oci-howto.md` provisions an OCI A1 instance
-with today's scripts, before any F07 code. It sidesteps the login-user
-problem by setting `DOME_USER=ubuntu`, and adds swap by hand. Following it
-is how to run T01. When F07 lands, its cloud-init and swap changes replace
-steps 5–6, and the runbook folds into `cloud-howto.md` (T07).
+**OCI runbook:** `02-doc/oci-howto.md` provisions the A1 instance and is how
+you run TF07.0. Once TF07.0 validates the breakages, that runbook adopts
+F07's cloud-init flow and `DOME_TARGET=cloud`, and folds into
+`cloud-howto.md` (TF07.6).
 
 ## Known limitations
 

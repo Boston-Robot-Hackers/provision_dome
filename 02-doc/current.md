@@ -1,6 +1,6 @@
 # Current Status
 
-**Date:** 2026-09-22
+**Date:** 2026-09-24
 
 Full session-by-session log lives in `02-doc/history.md`. This file holds
 only current status and open items.
@@ -10,18 +10,88 @@ only current status and open items.
 F02, F03, F04, F05 all complete.
 
 - **F06** (macOS Docker dev) — spec'd, **no tasks yet**.
-- **F07** (cloud dev host) — spec'd and tasked, 9 tasks in
-  `04-tasks/notdone/TF07-cloud-dev-host.md`, none started. **Rewritten
-  2026-09-22 after a critique**; see below.
+- **F07** (cloud dev host) — **complete (2026-09-24).** OCI A1 (arm64) box
+  provisioned via Terraform; smoke test passed (`ROS_DISTRO=kilted`, all 11
+  `dome*` packages, swap active). Feature and task files moved to `done/`.
 - **F08** (join a remote host to the robot's graph over Tailscale) — new,
   split out of F07. Spec only, with open questions to resolve before tasks.
 - **F09** (shared internet-facing server with on-demand wake) — **deferred**
   summary in `03-features/deferred/`. Recorded for memory only; the user
   doubts they'll pursue it.
 
-F07's T08 has an ordering dependency on F06 (both add a scenario row).
+- **F10** (selectable repo cloning) — **spec'd, tasks TF10.0–TF10.6 written,
+  none started.** Adds a `PRIVATE_REPO` marker in `manifest/repos.txt` and a
+  `DOME_CLONE_OVERRIDE` flag (unset = clone all; `PUBLIC_ONLY`; `NONE`), so a
+  cloud host carries **no push-capable GitHub key and no private clones**.
+  Purely additive: `pi`/`vm`/`docker` unchanged. See below.
 
-This session was an analysis pass over the Pi (Scenario 1) build path, with
+F10's TF10.5 edits the F07 cloud-init template and `cloud-howto.md`.
+
+## ⏭ Next session — pick the next feature
+
+F07 is closed. Candidates:
+
+- **F10** (selectable repo cloning) — tasks written, none started; removes the
+  push-capable GitHub key from the cloud host. Suggested next: TF10.0/TF10.1.
+- **F06** (macOS Docker dev) — spec'd, needs a task list first.
+- **F08** (remote graph) — five open questions to resolve before tasks.
+
+The branch `feature/f07-cloud-dev-host` has many **uncommitted** changes
+(Terraform, `Makefile`, `cloud-howto.md`, F10 files, F07 close-out) — commit
+when asked.
+
+**Box:** `dome-cloud-1` at `129.213.124.37` (arm64, 4 OCPU/24 GB). Re-entry:
+`make ssh`, or `ssh -i ~/.ssh/id_oci -o IdentitiesOnly=yes ubuntu@129.213.124.37`.
+Login key note: `~/.ssh/id_oci.pub` is the durable key on the box (the original
+`~/.ssh/id_ed25519` went missing from disk). The `Makefile` wraps
+start/stop/status/ssh.
+
+Decision on record: **stay on OCI A1 Always Free + Terraform** (price is the top
+priority; Terraform removed the console friction). Desk mini PC stays a
+"someday" idea. Follow-up: make the login username a Terraform variable
+(TF07.10, not yet written — see `notes.md`).
+
+**Money:** stop the box between sessions —
+`oci compute instance action --instance-id <ocid> --action SOFTSTOP`
+(the IP survives stop/start).
+
+**Open mood/decision:** user is fed up with OCI ("sort of hate oci") — but
+also says **price is a top priority**, and on price OCI A1 Always Free
+(~$0, arm64) wins outright (AWS Graviton and DigitalOcean both cost real
+money; DO is x86 anyway; a desk box is $300 up front). So the reason to
+leave OCI is frustration, not cost — and **Terraform removes the
+frustration while keeping the $0 price**. Plan: **stay on OCI A1 Always Free
++ Terraform.** Desk mini PC stays a "someday on the robot's network" idea,
+not a cost play. All friction is logged, so a pivot wastes nothing.
+
+---
+
+### Open — F10, selectable repo cloning
+
+`03-features/notdone/f10-selectable-repo-cloning.md`, tasks in
+`04-tasks/notdone/TF10-selectable-repo-cloning.md`. Motivated by F07: the
+cloud host needed a push-capable account GitHub key just to clone the private
+`git@` repos in `repos.txt`, and left private source on an internet-facing box.
+
+- TF10.0 mark private repos, TF10.1 resolve the flag, TF10.2 order-independent
+  marker parser, TF10.3 gate `clone_section`, TF10.4 refuse `git@`/`ssh://`
+  clones under `PUBLIC_ONLY`/`NONE`, TF10.5 cloud-init + `cloud-howto.md`
+  integration, TF10.6 test suite and regression check.
+- Not started. Per process, switching from F07 to F10 needs permission first.
+- Suggested order: close F07 TF07.0 first, then F10.
+
+### Housekeeping (2026-09-24)
+
+- Deleted the stray `fakehome/` directory (held only a 17-byte
+  `.statusline-usage.tsv` cache, untracked).
+- Many changes on `feature/f07-cloud-dev-host` are still uncommitted
+  (Terraform, `Makefile`, `cloud-howto.md`, `start-desktop.sh`, F10 files).
+
+---
+
+### Earlier context (pre-2026-09-23 session)
+
+This section was an analysis pass over the Pi (Scenario 1) build path, with
 one fix landed and one new feature spec'd.
 
 ### Fixed — `dome_telemetry` was never being cloned
@@ -86,10 +156,10 @@ compose files are passed**, not by a new `manifest/` flag — no
 
 **Tasks not yet written.**
 
-### Open — F07, cloud host as a remote ROS 2 dev box
+### Done — F07, cloud host as a remote ROS 2 dev box
 
-`03-features/notdone/f07-cloud-dev-host.md`, tasks in
-`04-tasks/notdone/TF07-cloud-dev-host.md`. Rewritten after a critique found
+`03-features/done/f07-cloud-dev-host.md`, tasks in
+`04-tasks/done/TF07-cloud-dev-host.md`. Rewritten after a critique found
 that following `vm-howto.md` on a real cloud host would fail.
 
 **What breaks on a cloud host today:**
@@ -124,11 +194,13 @@ Robot-graph joining moved to F08. Provider research and pricing moved to
   so the old $28 figure was wrong.
 - A refurbished desk mini PC was added as an alternative.
 
-**Open decision before T01: cloud host or desk box.** A desk box on the
-robot's network would make most of F07 and F08 unnecessary.
+**Decision made: OCI A1 (arm64).** arm64 matches the Pi, and DigitalOcean
+has no arm shape. Working assumption — fallbacks (DigitalOcean x86_64, or a
+desk mini PC on the robot's network) are in `notes.md` if OCI doesn't pan
+out. The feature spec and `oci-howto.md` were updated to assume OCI.
 
-T01 is a manual cloud bring-up that must confirm the predicted breakages
-before any code. **Not started.**
+TF07.0 (manual OCI bring-up) confirmed the predicted breakages; verdicts are
+in `notes.md`. **Done 2026-09-24.**
 
 ### Open — F08, remote host joins the robot's ROS graph
 
@@ -143,17 +215,17 @@ them before writing tasks. Absorbs F06's deferred graph-joining question.
 
 ## Open
 
-- Five chores logged in `04-tasks/chores.md`, none blocking: `pi-howto.md`'s
-  false "re-clones changed repos" dev-cycle claim; its `--symlink-install`
-  troubleshooting recipe contradicting the deliberate empty `colcon` flags;
-  `host-setup.sh` bypassing `manifest/lib.sh`; a self-defeating provenance
-  echo in `bare-metal-build.sh`; unpinned `numpy` in `pip.txt`.
+- Two chores still open in `04-tasks/chores.md`, neither blocking:
+  `host-setup.sh` bypassing `manifest/lib.sh` (and the env > user.txt >
+  config cascade duplicated ~9 times), and a self-defeating provenance echo
+  in `bare-metal-build.sh`. Closed 2026-09-24: the `pi-howto.md`/`vm-howto.md`
+  dev-cycle claim (docs now say the build only clones *new* repos; updating
+  existing ones is a manual `git -C <repo> pull`), the `--symlink-install`
+  recipe and `manifest-format.md` example, and the `pip.txt` numpy pin
+  (a pin there wouldn't help — see the chore).
 
-- The `pi-howto.md` dev-cycle item is the one worth a decision rather than a
-  quick edit — `clone_section` deliberately skips existing dirs, so
-  re-running `bare-metal-build.sh` never updates already-cloned repos.
-  Fixing the *doc* is a chore; adding a pull pass is a behavior change
-  needing a feature/task pair.
+- Adding an opt-in pull pass to `bare-metal-build.sh` remains a possible
+  feature (behavior change, needs a feature/task pair); not planned.
 
 - One-off host cleanup available for the current Pi, at the user's
   convenience — `systemctl disable --now dome docker docker.socket
@@ -177,10 +249,10 @@ them before writing tasks. Absorbs F06's deferred graph-joining question.
   `./host-setup.sh` from the repo root, but the script lives at
   `scripts/host-setup.sh`. It would fail if uncommented. Worth a chore.
 
-- F07 has a full task list and is ready to start; T01 (validating the
-  existing vm path on a real cloud instance) is the natural next step and is
-  a manual provisioning run, not code. T07 (scenario-table/README updates)
-  should wait until F06's status/wording is settled to avoid rework.
+- F07's breakage findings imply doc fixes to `oci-howto.md`/`cloud-howto.md`
+  (host GitHub key must be the `DOME_USER`'s, default filename; explicit
+  `-i … -o IdentitiesOnly=yes` ssh form). F10 makes the key unnecessary on
+  cloud hosts.
 
 ## Blockers
 
