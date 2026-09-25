@@ -50,6 +50,32 @@ docs.
 3. **Set a budget alert immediately:** Billing → *Budgets* → a $5 budget
    with an email alert at 100%.
 
+### Signing in to the Console
+
+Sign in at **cloud.oracle.com**. The login is a **two-step prompt**, not a
+single email box:
+
+1. First it asks for a **Cloud Account Name** — *not* an email. This is the
+   name of your **tenancy**: Oracle's term for the whole cloud facility (the
+   top-level account) you created at signup. **Mine is `pitosalas`.**
+
+2. Then it asks for the **email and password** that belong to that tenancy,
+   which is what actually logs you in.
+
+So: **`pitosalas` (tenancy / cloud account name) → then email + password.**
+
+### OCIDs
+
+Nearly everything in Oracle Cloud is identified by an **OCID** — Oracle Cloud
+Identifier, essentially a GUID. There isn't one OCID; there's a separate one
+for every kind of resource: the tenancy, your user, each compartment,
+instance, VCN, subnet, and so on. They look like
+`ocid1.<type>.oc1..aaaa…`, where `<type>` names the resource
+(`ocid1.tenancy…`, `ocid1.user…`, `ocid1.instance…`). When a step or a
+`terraform.tfvars` asks for an OCID, check *which* resource's OCID it wants —
+`compartment_ocid`, for instance, takes the **tenancy** OCID, not your user
+OCID.
+
 ---
 
 ## Step 2: Mac Prep
@@ -136,28 +162,30 @@ Clone into `ubuntu`'s home — `manifest/bashrc` expects the repo at
 cd ~
 git clone https://github.com/Boston-Robot-Hackers/provision_dome.git
 cd provision_dome
-printf 'DOME_USER=ubuntu\nDOME_TARGET=vm\n' > manifest/user.txt
+printf 'DOME_USER=ubuntu\nDOME_TARGET=vm\nDOME_CLONE_OVERRIDE=PUBLIC_ONLY\n' > manifest/user.txt
 
 sudo scripts/host-setup.sh        # finds 'ubuntu' already exists, skips user creation
 sudo scripts/bare-metal-base.sh
-```
-
-**GitHub access — generate a key on the VM. Do not copy your personal key
-here.** This box is on the public internet.
-
-```sh
-ssh-keygen -t ed25519 -C "oci-dome" -f ~/.ssh/id_ed25519
-cat ~/.ssh/id_ed25519.pub         # add at github.com → Settings → SSH keys, named "oci-dome"
-ssh -T git@github.com             # expect "Hi <you>!"
 sudo scripts/bare-metal-build.sh
 ```
 
-This must be the key of the user that runs the build (`ubuntu`), stored under
-its default name `~/.ssh/id_ed25519`. `bare-metal-build.sh` clones the private
-repos as that user, so a key elsewhere, or one you delete afterward, makes the
-build fail at the first clone with `Permission denied (publickey)`.
+**No GitHub key, no private repos.** `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` tells
+`bare-metal-build.sh` to skip every repo marked `PRIVATE_REPO` in
+`manifest/repos.txt`, so the build needs no GitHub credential and this
+internet-facing box never holds one. The only key on the instance is the
+**public** login key Terraform installed; your private key stays on your Mac.
 
-Delete the `oci-dome` key from GitHub when you tear the instance down.
+**What this excludes.** The dome robot packages are all private (`dome`,
+`dome2`, `dome_control`, `dome_nav`, `dome_vision`, …), so a `PUBLIC_ONLY` box
+gets a working ROS 2 environment with only the public dependencies — none of
+the dome code itself.
+
+**If you later want the private repos here anyway:** generate a *throwaway* key
+on the VM (`ssh-keygen -t ed25519 -C oci-dome -f ~/.ssh/id_ed25519`), add its
+public half at GitHub → SSH keys, drop the `DOME_CLONE_OVERRIDE` line from
+`manifest/user.txt`, re-run `sudo scripts/bare-metal-build.sh`, and delete the
+`oci-dome` key from GitHub at teardown. Never copy your personal key to this
+box.
 
 ---
 

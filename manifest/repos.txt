@@ -1,5 +1,5 @@
 [root]
-git@github.com:campusrover/rosutils.git rosutils PRIVATE_REPO
+https://github.com/campusrover/rosutils.git rosutils
 https://github.com/luxonis/depthai-python.git depthai-python
 https://github.com/pitosalas/linorobot2_hardware.git linorobot2_hardware
 git@github.com:Boston-Robot-Hackers/j3.git j3 PRIVATE_REPO
