@@ -28,7 +28,10 @@ F02, F03, F04, F05 all complete.
 
 ## ⏭ Next session — pick the next feature
 
-F07 and F10 are closed. Candidates:
+F07 and F10 are closed. **F11** (Terraform creates the login account as
+`DOME_USER` with a sudo password, not `ubuntu`) is spec'd with tasks
+TF11.0–TF11.5, **awaiting approval**; it has one open decision (rebuild the
+existing box or add a second). Other candidates:
 
 - **F06** (macOS Docker dev) — spec'd, needs a task list first.
 - **F08** (remote graph) — five open questions to resolve before tasks.
