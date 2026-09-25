@@ -42,6 +42,7 @@ raspi-config
 dbus-x11
 novnc
 tigervnc-standalone-server
+tigervnc-tools
 websockify
 xfce4
 
