@@ -2,6 +2,62 @@
 
 Semi-permanent architecture decisions, research, calibration notes.
 
+## Vocabulary: the machines, and the one thing that isn't one (2026-09-26)
+
+Agreed names, so that features and reviews mean the same thing by them. Four
+**hosts**, plus one **artifact** that is repeatedly mistaken for a host.
+
+### The four hosts
+
+**The box** — the rented OCI A1 instance, `dome-cloud-1`. Scenario 4,
+`DOME_TARGET=cloud`, `cloud-howto.md`. Public IP, no robot hardware, created
+and destroyed by Terraform. **Expendable by design** — losing it should cost
+nothing but itself.
+
+**The robot** — the physical Dome: a Pi 4/5 with camera, lidar, ESP32 and
+GPIO. Scenario 1, `DOME_TARGET=pi` (the default), `DOME_MODE=native`,
+`pi-howto.md`. *"The Pi" means this tool installing all the bits **directly
+onto the Pi*** — a native bare-metal install, not a container. Lives on the
+LAN (`192.168.4.100`), no public address. **Not expendable.**
+
+**The Mac** — the workstation. Not a `DOME_TARGET` and not part of the running
+system: it is the setup console (Terraform, the `oci` CLI, SSH) and the build
+host for the Docker image. See *Why the Mac outranks the rest* below.
+
+**The VM** — a local Ubuntu 24.04 guest under VMware or Parallels. Scenario 2,
+`DOME_TARGET=vm`, `vm-howto.md`. The same native install as the Pi with the
+Pi-hardware steps skipped; for development without Pi hardware. Expendable.
+
+### Not a host — `dome-docker`
+
+`dome-docker:dome-kilted` (`compose/compose.yaml:14`) is a **reusable
+container image**, Scenario 3, `DOME_MODE=docker`. It is built on the Mac with
+buildx (cross-compiled to arm64), pushed to a registry, then pulled and run on
+the Pi.
+
+It is **an artifact that runs on a host, not a host**. It has no credentials,
+no network position and no identity of its own until something runs it, so it
+never belongs in a list of machines — a recurring category error worth naming.
+
+**It is the least debugged part of the project.** Treat its behavior as
+unverified unless it has just been exercised. F06 would run the same image on
+the Mac, which is what "reusable" is for.
+
+### Why the distinction matters
+
+Hosts carry credentials and occupy network positions; the image carries
+neither. Any blast-radius question is therefore asked of the hosts, and of the
+`manifest/` all of them share — not of the image.
+
+**Why the Mac outranks the rest.** It is the only machine holding private key
+material: `~/.ssh/id_ed25519` — simultaneously the GitHub key, the robot key
+and the box key — plus `terraform.tfstate` and the OCI CLI credentials. It is
+"not part of the operation" and still the highest-value target of the four.
+This inverts the intuition that the internet-facing box is the risky one.
+
+**Known collision.** The live box is configured `DOME_TARGET=vm`, not `cloud`,
+so today *the box* and *the VM* share a target value. Reconcile under F11.
+
 ## manifest/ as single source of truth (2026-05-18)
 
 All build configuration lives in `manifest/`. Scripts are thin executors — no package names,

@@ -39,9 +39,12 @@ F02, F03, F04, F05 all complete.
 
 ## ⏭ Pick up here (next session)
 
-**Uncommitted work on `feature/f07-cloud-dev-host`:** F13 and F14 are done,
-tested (full suite **300 green**), and moved to `done/`, but **nothing is
-committed yet.** Likely first action tomorrow: commit F13 + F14 on this branch.
+**F13 + F14 are committed and pushed** as `a6eeb8f` on
+`feature/f07-cloud-dev-host` (2026-09-26), suite **300 green** at commit time.
+The branch now tracks `origin/feature/f07-cloud-dev-host`.
+
+**The live box is provisioned for public VNC and currently UP** — see *Live box*
+below. Nothing is in progress; pick a feature from *Candidates for next*.
 
 **Closed this session (2026-09-25):**
 
@@ -63,19 +66,43 @@ committed yet.** Likely first action tomorrow: commit F13 + F14 on this branch.
   `xfce4-terminal` gap — folded into F14 and applied; and reconciling the live
   box).
 
-**Box:** `dome-cloud-1` at **`129.213.164.184`** (arm64, 4 OCPU/24 GB),
-currently **RUNNING** and back to **SSH-only** (the manual VNC test was torn
-down). Re-entry: `make -C terraform/oci ssh`, or `ssh ubuntu@129.213.164.184`.
+### Live box — `dome-cloud-1`, public VNC UP (2026-09-26)
+
+`129.213.164.184` (arm64, 4 OCPU/24 GB), **RUNNING**, repo at `a6eeb8f`.
+Re-entry: `make -C terraform/oci ssh`, or `ssh ubuntu@129.213.164.184`.
 SSH as `ubuntu` works with the default agent/key — the old `~/.ssh/id_oci` note
 is **stale** (`id_oci` isn't on disk and wasn't needed to connect).
 
-**To use F14's public VNC on the live box** (it is *not* yet provisioned for
-it): rerun `sudo scripts/bare-metal-base.sh` (installs the new `dome-vnc*`
-units + desktop apps incl. `xfce4-terminal`, and picks up `tigervnc-tools`),
-set `DOME_VNC_ACCESS=public` in `manifest/user.txt`, run `vncpasswd` once, then
-`make -C terraform/oci vnc-up`. The `terraform/oci/Makefile` wraps
-start/stop/status/ssh/vnc-*; the repo-root `Makefile` holds box-side dev targets
-(`make build`/`desktop`/`env`/`status`).
+**Desktop URL:** `http://129.213.164.184:48210/vnc.html?autoconnect=true`
+(VNC password was already set on the box). Verified live: both units `active`,
+`Xtigervnc` on `127.0.0.1:5901`, `websockify` on `0.0.0.0:48210`, HTTP **200**
+from the laptop.
+
+It was reprovisioned **in place** — not rebuilt. A `terraform destroy`/`apply`
+would have been a *regression*: `user-data.template:36` clones the GitHub
+**default branch**, which does not have F13/F14, and the template writes
+neither `DOME_DESKTOP` nor `DOME_VNC_ACCESS`. Rebuilding only becomes sane once
+F11 teaches cloud-init the branch and those two vars.
+
+Both `dome-vnc.service` and `dome-vnc-firewall.service` are **enabled**, so the
+desktop returns on reboot. Close it with `make -C terraform/oci vnc-down`
+(stops the services *and* re-applies the SSH-only security list). Port 48210 is
+open to the internet with only a VNC password in front of a fully controlling
+desktop — the documented `public`-mode trade-off; don't leave it up idle.
+
+Two discrepancies found on the box while doing this:
+
+- **`DOME_TARGET=vm`, not `cloud`** as this file previously claimed. Harmless
+  in practice — swap (4G `/swapfile`) is active, and swap was the only thing
+  `cloud` gated. **Left as-is** rather than silently "corrected"; reconcile
+  under F11.
+- **`manifest/user.txt` had `DOME_DESKTOP=vnc` twice**, which parses as
+  `vncvnc` and would have made `bare-metal-base.sh` skip every `[apt-desktop]`
+  package while still exiting 0. Box file rewritten; the parser bug is logged
+  as a chore and is **not yet fixed**.
+
+The `terraform/oci/Makefile` wraps start/stop/status/ssh/vnc-*; the repo-root
+`Makefile` holds box-side dev targets (`make build`/`desktop`/`env`/`status`).
 
 Decision on record: **stay on OCI A1 Always Free + Terraform** (price is the top
 priority; Terraform removed the console friction). Desk mini PC stays a
