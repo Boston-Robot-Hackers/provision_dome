@@ -4,13 +4,13 @@
 
 **Priority**: High
 
-**Done:** no
+**Done:** yes
 
 **Tasks File Created:** yes
 
 **Tests Written:** yes
 
-**Test Passing:** yes (73 checks; suite 375 green)
+**Test Passing:** yes (72 checks; suite 368 green)
 
 **Description**: Harden **the box** so that fully losing it costs only itself.
 Machine names (*the box*, *the robot*, *the Mac*, *the VM*, and `dome-docker`,
@@ -478,3 +478,107 @@ the F15 changes applied.
 **Keep a second SSH session open throughout.** The sshd drop-in and the key
 rotation can each lock you out of a box whose only other door is the VNC
 desktop this feature is busy closing.
+
+---
+
+## Verification — run live on `dome-cloud-1`, 2026-09-26
+
+Every check below was run against the real box and the real OCI API, not
+against Terraform state. Recorded per `.claude/style_guide.md`: command,
+expectation, actual.
+
+### F15.1 — agent forwarding refused
+
+`ssh -A dome-cloud-1`, then on the box `ssh-add -l` and `ssh -T git@github.com`.
+The Mac's agent held **both** keys at the time, including
+`SHA256:x+WKIprPTcc…` — the GitHub and robot key — so a forwarded socket would
+have been live.
+
+Expected no agent and a failed GitHub auth. **Actual:**
+`SSH_AUTH_SOCK=[EMPTY]`, `Could not open a connection to your authentication
+agent`, and `git@github.com: Permission denied (publickey)`.
+
+So even with `-A` typed deliberately and the key loaded, the box gets no
+signing oracle and cannot push to the org. **This is the finding that closes
+the git-borne route to the robot**, which was the reason F15.1 was worth doing
+while still only "one `ssh -A` away".
+
+`sudo sshd -T` on the box confirms the effective config, not just the file:
+`allowagentforwarding no`, `x11forwarding no`, `permitrootlogin no`, and
+`allowtcpforwarding yes` — so `ssh -L` for Foxglove and tunnel VNC is intact,
+which was the point of not disabling it.
+
+### F15.2 / F15.3 — pins hold
+
+`mcfly 0.9.4` on the box, matching the pinned commit's release tag, installed
+via the verified path (`[mcfly] sha256 verified` in the provisioner output).
+
+`rosutils`: `git status -sb` reports **`## HEAD (no branch)`** at
+`1e0fbebea7ced8c63ea1bb60031d06e42a3daedf`. The detached state is the evidence
+that matters — an earlier check found the right commit but on `master`, which
+proved only that the pin *happened* to match, not that it was enforced. The
+clone path was re-run from scratch (`rm -rf ~/rosutils`) to exercise it.
+
+Doppler is gone: `command -v doppler` finds nothing and the apt list is
+removed.
+
+### F15.4 — audit
+
+`make -C terraform/oci audit` reports `clean: no credential files, no private
+keys`.
+
+### F15.5 — TLS, and a correction
+
+`https://…:48210/vnc.html` returns **200** and serves the noVNC page over
+TLSv1.3. The certificate served matches `~/.vnc/novnc.pem` on the box
+byte-for-byte (SHA-256 `22:75:32:AD:…:B6:08`), so nothing is interposed.
+
+**`http://…:48210/vnc.html` returned 200 with the certificate in place**, until
+`--ssl-only` was added. `--cert` alone leaves plaintext accepted on the same
+port, so this finding was still open while looking closed. After the fix:
+`status=000`, no HTTP response at all. Recorded in the recommendation above.
+
+Ingress, read from the OCI API while armed:
+
+```
+proto=6 source=0.0.0.0/0        ports=22-22
+proto=6 source=96.230.113.66/32 ports=48210-48210
+```
+
+### F15.9 — stopped means disarmed
+
+After `make stop`, the live ingress list is **`22-22` only** — 48210 gone. After
+`make start`, `curl` to 48210 returns `status=000` and both VNC units report
+`disabled` with `dome-vnc` `inactive`. So neither stopping nor starting re-arms
+the box, and a reboot cannot either.
+
+`make stop` was also run against an already-stopped box: the `vnc-down`
+prerequisite's ssh timed out, was ignored by its leading `-` as designed, and
+the apply still ran. Disarming does not depend on the box being reachable.
+
+### Re-key survived the boot — the risk that did not materialize
+
+The instance metadata still carries the **old** public key, because changing it
+is force-replacement (below). The open question was whether cloud-init would
+re-add it to `~/.ssh/authorized_keys` on boot and silently undo the re-key.
+
+Checked after a full stop/start: `ssh-keygen -lf ~/.ssh/authorized_keys` shows
+**one** key, `SHA256:V1A2xPZoG8k2DgzC813bq6FXVrx5ucGIH0+l19AoZo8 dome-cloud-1`.
+It did not come back. Worth re-checking after any future reboot, since the
+stale metadata remains.
+
+## Deliberately not done
+
+- **F15.6 (child compartment)** — deferred, not attempted. Creating a
+  compartment is a real tenancy change, and the plan that would say whether the
+  instance gets replaced needs the compartment to exist first. The finding is
+  preventive and its premise still holds (no instance principal in
+  `compute.tf`), so it waits for the F11 rebuild.
+- **F15.1's Terraform half** — `ssh_public_key_path` is *not* set in
+  `terraform.tfvars`. Verified: doing so reports `oci_core_instance.dome must be
+  replaced` (1 to add, 1 to destroy), which would destroy the box and its
+  workspace. The per-box key therefore reaches Terraform at the next rebuild;
+  the live box was re-keyed by hand and `terraform.tfvars.example` carries the
+  warning.
+- **`fail2ban`** — skipped with reason: no stock websockify/VNC filter exists,
+  and F15.5's CIDR narrowing removes the internet from that port outright.

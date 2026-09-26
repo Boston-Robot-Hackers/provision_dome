@@ -390,7 +390,7 @@ wording is gone. Doc-only otherwise.
 
 ## TF15.11 — a dedicated keypair per box
 
-**Status**: partly done — repo side landed; Mac keygen and live re-key are manual
+**Status**: done — Mac keygen + ~/.ssh/config + live re-key all completed and verified; the Terraform half waits for the F11 rebuild (metadata change is force-replacement)
 
 **Description**: Closes **F15.1**, which is preventive rather than live:
 `~/.ssh/id_ed25519` is simultaneously the GitHub key, the robot key and the box
@@ -581,7 +581,7 @@ which is F15's new invariant and still worth pinning.
 
 ## TF15.16 — live verification on the box
 
-**Status**: not done — box is STOPPED
+**Status**: done — verified live 2026-09-26; results recorded in the feature file
 
 **Description**: The static suite cannot prove any of this. Run F15's *How to
 Demo* against `dome-cloud-1` and record command, expectation and actual result
@@ -614,7 +614,7 @@ named.
 
 ## TF15.17 — close out
 
-**Status**: not done
+**Status**: done
 
 **Description**: Set F15's **Done**, **Tests Written** and **Test Passing** to
 yes, move `03-features/notdone/f15-cloud-box-blast-radius.md` to

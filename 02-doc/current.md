@@ -30,10 +30,14 @@ F02, F03, F04, F05 all complete.
   the laptop OCI control plane (`start`/`stop`/`status`/`ip`/`ssh`/`vnc-*`)
   moved to `terraform/oci/Makefile`. Suite green (273 total). Files in `done/`.
 
-- **F15** (contain the cloud box's blast radius) — **implemented 2026-09-26 on
-  `f15-blast-radius`, not yet closed.** 14 of 18 tasks done; the per-box key,
-  live verification and the child compartment remain (see *Pick up here*).
-  Tests written and passing (71 checks).
+- **F15** (contain the cloud box's blast radius) — **complete (2026-09-26).**
+  Verified live on `dome-cloud-1`, not just statically: `ssh -A` gets no agent
+  and cannot reach GitHub, `rosutils` is detached at its pinned commit, 48210
+  admits one `/32` and is closed by `stop`, plaintext on 48210 is refused, the
+  audit is clean. Doppler removed from the project entirely. One finding
+  deferred (F15.6, child compartment) and one half deferred (the Terraform key
+  wiring) — both to the F11 rebuild, both recorded in the feature file. Files in
+  `done/`.
 - **F16** (key custody on the Mac) — new, split out of F15. **Spec only, no
   tasks.** Ranks above F15: two unencrypted crown-jewel private keys.
 - **F17** (named repo sets via `REPOS_CONFIG`) — new. Spec **and** tasks
@@ -48,132 +52,122 @@ F02, F03, F04, F05 all complete.
 
 ## ⏭ Pick up here (next session)
 
-**F15 is implemented but not committed**, on a new branch
-**`f15-blast-radius`** (off `main`). Suite **367 green, 0 failed** — F15 adds
-`tests/test_f15_blast_radius.sh` (71 checks).
+**F15 is closed and committed** on branch **`f15-blast-radius`** (`0e47af5`,
+`4c30c28`, plus the closeout commit). Suite **368 green, 0 failed**. The branch
+is pushed and tracking. **Not merged to `main`.**
 
-Three things remain before F15 closes, all of them needing you rather than
-more code:
+Nothing is in progress. The user's decision (2026-09-26): **F17 next**, because
+inspecting the box showed the repo problem it solves is real — see below.
 
-1. **Generate the per-box key** (TF15.11). `terraform/oci/Makefile` now defaults
-   `SSH_KEY` to `~/.ssh/id_dome_cloud`, **which does not exist yet**, so
-   `make ssh` and `make audit` stop with a message telling you the `ssh-keygen`
-   line. Until you re-key the box, override: `make ssh SSH_KEY=~/.ssh/id_ed25519`.
-   Re-keying is by hand — cloud-init reads `ssh_authorized_keys` at first boot,
-   so Terraform governs new boxes only. Keep a second session open.
-2. **Live verification** (TF15.16) — the box is STOPPED, and the static suite
-   cannot prove sshd refuses an agent or that the OCI edge refuses a stranger.
-   Steps are in the feature's *How to Demo*.
-3. **TF15.14 (child compartment) is deferred** — creating one is a real tenancy
-   change, and the plan that would say whether the instance gets replaced needs
-   the compartment to exist first. Waiting for the next rebuild, which F11 gates.
+**Why F17 moved up.** Under `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` the box has
+**none** of the `dome*` code — all 15 private repos are skipped — but it does
+have the 8 incidental public ones: `depthai-python`, `linorobot2_hardware`,
+`ldlidar_stl_ros2`, `micro-ROS-Agent` and `micro_ros_msgs` (the last two cloned
+**twice**, into both `ros2_ws/src` and `uros_ws/src`). So the cloud box is a ROS
+workspace full of a robot's dependencies with the robot missing. F17's `SAFE`
+set — a deliberate `rosutils` + `better_launch` — is exactly the fix, and its
+tasks TF17.0–TF17.10 are already written.
 
-**Landed this session (2026-09-26):**
+**Ordering note carried over from F15:** F15 landed first, so **TF17.5/TF17.6
+must preserve the commit-pin field** while stripping `PRIVATE_REPO`. A 40-hex
+third field is now a commit pin, not a branch — see `manifest_parse_repo`.
 
-- **F15 spec re-reviewed against the code**, and amended in seven places where
-  its recommendations did not survive contact with the tree — most importantly
-  that nothing here manages sshd, that Terraform passes **no `user_data`**
-  (`compute.tf:13`), and that a branch field cannot hold a commit SHA.
-- **Third-party code is pinned and verified** — `mcfly` to a commit with a
-  `sha256` that `bare-metal-base.sh` checks *before* executing (no more
-  `curl | sh` as root), `rosutils` to a commit. `claude-code` turned out to
-  accept `stable|latest|VERSION` and to verify its own payload, so it takes
-  `args = stable`.
-- **Doppler removed from the project entirely**, per explicit instruction — the
-  `[doppler]` apt repo is gone, so the CLI is installed on no target and
-  `rosutils`' token hook cannot resolve anything. Stronger than the written
-  rule F15 originally proposed.
-- **Stopped now means disarmed** — `make stop` depends on `vnc-down`, and the
-  VNC units are installed but **no longer enabled at boot**. Arming is always
-  `make vnc-up`.
-- **The VNC port is no longer open to the internet** — `var.vnc_allowed_cidr`,
-  with `vnc-up` passing your own address as a `/32` and *failing* rather than
-  widening if it cannot resolve one. Public mode now serves `https://` with a
-  self-signed cert.
-- **`scripts/box-audit.sh` + `make audit`** fail if the box holds a Claude or
-  `gh` token, `.git-credentials`, or any private key.
-- **sshd hardening drop-in** (`AllowAgentForwarding no`, `X11Forwarding no`,
-  `PermitRootLogin no`), installed on `cloud` targets only, validated with
-  `sshd -t` before reload; `rpcbind` masked. `fail2ban` deliberately skipped —
-  no stock websockify filter, and the CIDR narrowing supersedes it.
+**Also queued, from the user's notes (2026-09-26), neither spec'd yet:**
 
-**Known gap, not closed:** the `rosutils` pin only applies to **fresh** clones.
-`clone_section` skips existing directories, so the box and the robot stay on
-whatever commit they already have. Enforcing a pin on an existing clone changes
-the deliberate skip-existing behavior and would need its own feature/task pair.
+- **A summary target** (proposed F18): one Mac-side command reporting live
+  state — IP, lifecycle, armed/disarmed, actual OCI ingress rules, effective
+  `DOME_*` config from the box, key in use, audit result. Motivated by real
+  confusion this session (private `10.0.1.235` vs the public IP, `http` vs
+  `https`, armed vs disarmed). `make env` on the box reports only three keys and
+  omits `DOME_DESKTOP`/`DOME_VNC_ACCESS`/the clone override.
+- **`manifest/` should hold only manifests** (a chore, no behavior change):
+  `lib.sh` is shell code and belongs in `scripts/`; `bashrc` is an installed
+  template and belongs under `host-file-templates/`. 22 files reference
+  `lib.sh`, 17 reference `bashrc`, though most are docs and historical task
+  files to leave as record. Hazard: moving `bashrc` changes what
+  `bare-metal-build.sh` installs, and a stale `~/.bashrc` already caused one
+  live failure during the repo rename (see `chores.md`).
+- **`micro-ROS-Agent`/`micro_ros_msgs` listed twice** in `repos.txt` — decide
+  whether the duplication is deliberate.
 
-**Candidates for next:**
+**Open chores:** six in `04-tasks/chores.md`, including the new one to uninstall
+the Doppler CLI from hosts provisioned before F15 — **the robot is the one that
+matters**, since it won't be rebuilt.
 
-- **F16** (key custody on the Mac) — spec only, **no tasks**. Higher priority
-  than F15 was: both of the Mac's crown-jewel private keys are unencrypted on
-  disk, and `~/.oci/oci_api_key.pem` is the whole tenancy.
-- **F17** (named repo sets via `REPOS_CONFIG`) — **tasks written**
-  (TF17.0–TF17.10), nothing done. Collides with F15 over `repos.txt` and the
-  parser; F15 landing first means TF17.5/TF17.6 must preserve the commit-pin
-  field while stripping `PRIVATE_REPO`.
+**Candidates after F17:**
+
+- **F16** (key custody on the Mac) — spec only, **no tasks**. Ranks high: both
+  crown-jewel private keys unencrypted on disk, and `~/.oci/oci_api_key.pem` is
+  the whole tenancy. F15's own spec says F16 outranks it.
 - **F11** (Terraform creates the login user as `DOME_USER`) — tasks
-  TF11.0–TF11.5, **awaiting approval**; one open decision (rebuild vs second
-  box). Also owns the `DOME_VNC_ACCESS` cloud-init wiring F14 deferred, and now
-  gates TF15.14 and any rebuild.
+  TF11.0–TF11.5, **awaiting approval**. Now also gates F15.6, the Terraform key
+  wiring, and any rebuild.
 - **F12** (per-mode repo transport) — spec only, open questions.
-- **F06** (macOS Docker dev) — spec'd, needs a task list first.
-- **F08** (remote ROS graph) — five open questions before tasks. Note F15.1's
-  fix is preventive *because* F08 adds the box→robot network leg.
-- Open chores in `04-tasks/chores.md`.
+- **F06** (macOS Docker dev) — spec'd, needs a task list.
+- **F08** (remote ROS graph) — five open questions. Note F15.1 was preventive
+  *because* F08 adds the box→robot network leg.
 
-### Live box — `dome-cloud-1`, STOPPED but armed for public VNC (2026-09-26)
+### Live box — `dome-cloud-1`, RUNNING and armed (2026-09-26, end of F15 session)
 
-`129.213.164.184` (arm64, 4 OCPU/24 GB), **STOPPED** as of end of session,
-repo at `a6eeb8f`. Re-entry: `make -C terraform/oci start`, then
-`make -C terraform/oci ssh`, or `ssh ubuntu@129.213.164.184`.
+`129.213.164.184` (arm64, 4 OCPU/24 GB), **RUNNING**, desktop **armed**, repo on
+branch `f15-blast-radius`. Re-entry from the Mac:
 
-**Disarmed by hand on 2026-09-26** — `make -C terraform/oci vnc-down` was run,
-and the security list now admits **SSH only**.
+```
+make -C terraform/oci start
+make -C terraform/oci ssh          # or: ssh dome-cloud-1
+```
 
-It needed doing by hand because at the time **`make stop` did not disarm**: it
-issued a `SOFTSTOP` and nothing else, leaving `48210` open at the edge and both
-VNC units `enabled`, so a later `make start` would silently restore a publicly
-reachable desktop.
+**It now has its own SSH key.** `~/.ssh/id_dome_cloud`
+(`SHA256:V1A2xPZoG8k2DgzC813bq6FXVrx5ucGIH0+l19AoZo8`), passphrase-protected, and
+the shared `id_ed25519` was **removed** from the box's `authorized_keys`. The
+Mac's `~/.ssh/config` has a `dome-cloud-1` block above `Host *` carrying
+`ForwardAgent no`, so `ssh dome-cloud-1` needs no flags. Backup of the previous
+config: `~/.ssh/config.bak-20260926-130319`.
 
-**Fixed on `f15-blast-radius` (TF15.6/TF15.7):** `stop` now runs the
-`vnc_access=none` apply first, and `bare-metal-base.sh` installs the VNC units
-without enabling them, so a reboot no longer re-arms the box either. *Stopped
-means disarmed.* The advice to run `vnc-down` explicitly is obsolete once that
-branch is merged — but **the box itself has not been reprovisioned**, so its
-units are still `enabled` on disk until `bare-metal-base.sh` is rerun there.
-SSH as `ubuntu` works with the default agent/key — the old `~/.ssh/id_oci` note
-is **stale** (`id_oci` isn't on disk and wasn't needed to connect).
+Note the **instance metadata still holds the old public key** — changing it is
+force-replacement, so it stays until the F11 rebuild. Cloud-init did **not**
+re-add it across a stop/start (verified), but re-check `authorized_keys` after
+any future reboot.
 
-**Desktop URL:** `http://129.213.164.184:48210/vnc.html?autoconnect=true`
-(VNC password was already set on the box). Verified live: both units `active`,
-`Xtigervnc` on `127.0.0.1:5901`, `websockify` on `0.0.0.0:48210`, HTTP **200**
-from the laptop.
+**`DOME_TARGET` is now `cloud`**, corrected this session — it had been `vm`,
+which would have silently skipped F15's sshd hardening. `DOME_DESKTOP=vnc`
+appears once (the earlier `vncvnc` duplicate is fixed). Effective config: the
+`user.txt` overrides above plus `ROS_DISTRO=kilted`, `UBUNTU_CODENAME=noble`,
+`DOME_MODE=native`, `SWAP_SIZE_MB=2048` from `config.txt`.
 
-It was reprovisioned **in place** — not rebuilt. A `terraform destroy`/`apply`
-would have been a *regression*: `user-data.template:36` clones the GitHub
-**default branch**, which does not have F13/F14, and the template writes
-neither `DOME_DESKTOP` nor `DOME_VNC_ACCESS`. Rebuilding only becomes sane once
-F11 teaches cloud-init the branch and those two vars.
+**Hardened and verified** (see the F15 feature file for full results): sshd
+refuses agent forwarding, X11 and root login while keeping `AllowTcpForwarding`;
+`rpcbind` masked; Doppler CLI uninstalled; `mcfly 0.9.4` from a verified pin;
+`rosutils` detached at its pinned commit.
 
-Both `dome-vnc.service` and `dome-vnc-firewall.service` are **enabled**, so the
-desktop returns on reboot. Close it with `make -C terraform/oci vnc-down`
-(stops the services *and* re-applies the SSH-only security list). Port 48210 is
-open to the internet with only a VNC password in front of a fully controlling
-desktop — the documented `public`-mode trade-off; don't leave it up idle.
+**Desktop URL — note `https`, not `http`:**
+`https://129.213.164.184:48210/vnc.html?autoconnect=true`
 
-Two discrepancies found on the box while doing this:
+Plaintext is refused (`--ssl-only`), the cert is self-signed so the browser will
+warn, and its fingerprint is `22:75:32:AD:5C:89:14:84:30:12:E8:0F:5D:18:6E:B5:
+51:D1:66:96:EF:56:D5:DC:23:2E:92:D2:30:B3:B6:08`. Ingress on 48210 is limited to
+**one `/32`** — whatever address `make vnc-up` saw — so re-run `vnc-up` if your
+address changes. Open the page in a **separate browser profile** with no
+signed-in sessions.
 
-- **`DOME_TARGET=vm`, not `cloud`** as this file previously claimed. Harmless
-  in practice — swap (4G `/swapfile`) is active, and swap was the only thing
-  `cloud` gated. **Left as-is** rather than silently "corrected"; reconcile
-  under F11.
-- **`manifest/user.txt` had `DOME_DESKTOP=vnc` twice**, which parses as
-  `vncvnc` and would have made `bare-metal-base.sh` skip every `[apt-desktop]`
-  package while still exiting 0. Box file rewritten; the parser bug is logged
-  as a chore and is **not yet fixed**.
+**The VNC units are no longer enabled at boot.** A reboot or a `make start`
+leaves the box closed until an explicit `make vnc-up`. And **`make stop` now
+disarms**: it closes 48210 at the edge before the `SOFTSTOP`, so the old advice
+to remember `vnc-down` is obsolete.
 
-The `terraform/oci/Makefile` wraps start/stop/status/ssh/vnc-*; the repo-root
-`Makefile` holds box-side dev targets (`make build`/`desktop`/`env`/`status`).
+It has only ever been reprovisioned **in place**, never rebuilt. A
+`terraform destroy`/`apply` would still be a regression:
+`user-data.template:36` clones the GitHub **default branch** (which has none of
+F13/F14/F15) and the template writes neither `DOME_DESKTOP` nor
+`DOME_VNC_ACCESS`. Rebuilding becomes sane only once F11 teaches cloud-init the
+branch and those vars — and a destroy also risks not getting A1 capacity back.
+
+**What the box does *not* have: any `dome*` code.** `PUBLIC_ONLY` skips all 15
+private repos, so `ros2_ws/src` holds only public dependencies. F17 is the fix.
+
+The `terraform/oci/Makefile` wraps start/stop/status/ssh/audit/vnc-*; the
+repo-root `Makefile` holds box-side dev targets
+(`make build`/`desktop`/`env`/`status`).
 
 Decision on record: **stay on OCI A1 Always Free + Terraform** (price is the top
 priority; Terraform removed the console friction). Desk mini PC stays a
