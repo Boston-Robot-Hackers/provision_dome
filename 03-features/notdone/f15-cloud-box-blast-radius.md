@@ -171,11 +171,18 @@ not to type `-A`:
   `var.ssh_public_key_path` at it — the variable already exists, so this is a
   `terraform.tfvars` line plus a doc change.
 
-  **This governs future boxes only.** `ssh_authorized_keys` is instance
-  metadata that cloud-init reads at **first boot**, so changing the variable
-  does not re-key a running instance. `dome-cloud-1` needs the new public key
-  appended to `~/.ssh/authorized_keys` by hand, login proven from a second
-  session, and only then the old entry removed.
+  **This governs future boxes only, and changing it on an existing box is
+  destructive.** Verified 2026-09-26: `terraform plan` reports
+  `oci_core_instance.dome must be replaced` — OCI treats instance metadata as
+  force-replacement, so an apply would destroy the box, its boot volume, the
+  cloned repos and the built workspace, not update its `authorized_keys`.
+  (Cloud-init reads `ssh_authorized_keys` at first boot in any case.)
+
+  So the variable is set when a box is **created**, and `dome-cloud-1` is
+  re-keyed **by hand**: append the new public key to `~/.ssh/authorized_keys`,
+  prove login from a second session, then remove the old entry. Keep the value
+  out of `terraform.tfvars` until the next rebuild — which F11 gates — or any
+  later full `terraform apply` becomes a box-destroying landmine.
 
 - Set `AllowAgentForwarding no` and `X11Forwarding no` in the box's sshd
   config (nothing in the workflow needs either; Foxglove and tunnel-mode VNC
@@ -283,7 +290,13 @@ password to 8 characters**, so a long passphrase provides no extra strength.
 **Recommendation.** Two independent improvements, either of which helps:
 
 - Give websockify `--cert` (self-signed is enough for this) so the desktop is
-  `wss://`. Say in the docs that the browser will warn about the self-signed
+  `wss://`, **and `--ssl-only`**. Verified live 2026-09-26: with `--cert` alone
+  websockify still accepts plaintext on the same port — `http://<ip>:48210`
+  returned **200** — so the encryption is advisory and any browser defaulting to
+  `http://` gets a cleartext session and a capturable challenge-response.
+  `--cert` without `--ssl-only` does not close this finding.
+
+  Say in the docs that the browser will warn about the self-signed
   certificate — an unexplained warning on a page the user has just been told to
   distrust is worse than no change.
 - **Narrow the ingress CIDR.** `network.tf:53` hardcodes `source =

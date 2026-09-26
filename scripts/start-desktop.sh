@@ -83,7 +83,11 @@ if [[ "${DOME_VNC_ACCESS}" == "public" ]]; then
             || { echo "ERROR: could not generate ${CERT}" >&2; exit 1; }
         chmod 600 "${CERT}"
     fi
-    TLS_ARGS=(--cert="${CERT}")
+    # --ssl-only is not optional here: with --cert alone, websockify still
+    # accepts plaintext on the same port, so http:// keeps working and the
+    # encryption is advisory. Verified live 2026-09-26 — http://<ip>:48210
+    # returned 200 until this was added.
+    TLS_ARGS=(--cert="${CERT}" --ssl-only)
 fi
 
 echo "==> websockify ${BIND} -> localhost:5901 (noVNC web root ${NOVNC_WEB})"

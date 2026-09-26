@@ -28,6 +28,12 @@ compartment_ocid = "ocid1.tenancy.oc1..REPLACE_ME"
 # ssh_public_key_path points at a key that exists ONLY for this box (F15.1):
 #   ssh-keygen -t ed25519 -f ~/.ssh/id_dome_cloud -C dome-cloud-1
 # Your ~/.ssh/id_ed25519 is simultaneously your GitHub key and your robot key;
-# keeping it off the box means a box compromise cannot sign as you. Note this
-# governs NEW boxes only — cloud-init reads ssh_authorized_keys at first boot,
-# so an existing instance has to be re-keyed by hand.
+# keeping it off the box means a box compromise cannot sign as you.
+#
+# WARNING, verified 2026-09-26: changing this on an EXISTING box is not an
+# update — OCI treats instance metadata as force-replacement, so
+# `terraform plan` reports "oci_core_instance.dome must be replaced" and an
+# apply would destroy the box, its boot volume, the cloned repos and the built
+# workspace. Set this value when creating a box, and re-key an existing one by
+# hand: append the new public key to ~/.ssh/authorized_keys, prove login from a
+# second session, then remove the old entry.

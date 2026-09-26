@@ -179,6 +179,8 @@ check "grep -qi 'fail2ban' '${HOWTO}'" "cloud-howto records why fail2ban is skip
 echo "--- TF15.13: TLS on the public listener ---"
 check "grep -q 'TLS_ARGS' '${SD}'" "start-desktop builds TLS args"
 check "grep -q 'openssl req -x509' '${SD}'" "start-desktop generates a cert when absent"
+check "grep -q -- '--ssl-only' '${SD}'" \
+    "start-desktop refuses plaintext (--cert alone leaves http:// working)"
 check "grep -q 'DOME_VNC_ACCESS}\" == \"public\"' '${SD}'" "TLS is gated to public mode"
 check "grep -qi 'self-signed' '${HOWTO}'" "cloud-howto warns about the self-signed cert"
 check "grep -qi 'truncated to 8 characters' '${HOWTO}'" \

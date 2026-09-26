@@ -416,7 +416,17 @@ future boxes only. Re-key `dome-cloud-1` by appending the new public key to
 new key in a **second** session, then removing the old entry. Do not remove
 the old key before the new one is proven — that is a lockout.
 
-Check `terraform plan` shows no instance replacement before applying anything.
+**Verified 2026-09-26: the plan DOES replace the instance.** With
+`ssh_public_key_path` repointed, `terraform plan` reports
+`oci_core_instance.dome must be replaced` (1 to add, 1 to destroy) — OCI treats
+instance metadata as force-replacement. The line was therefore **reverted out of
+`terraform.tfvars`**, which returns the plan to `No changes`.
+
+Consequence: the per-box key reaches Terraform only at the next rebuild, which
+F11 gates. Until then the live box is re-keyed by hand and the Mac-side
+half (keypair, `~/.ssh/config` block, Makefile `SSH_KEY`) is what is actually in
+force. `terraform.tfvars.example` carries the warning so the next person does
+not apply it casually.
 
 *Test:* extend the F15 suite — `terraform.tfvars.example` documents the
 per-box key, the Makefile's `SSH_KEY` default is the box key, and
@@ -472,6 +482,14 @@ That sshd actually refuses an agent is TF15.16's manual check.
 ## TF15.13 — TLS on the noVNC listener
 
 **Status**: done
+
+**Result (2026-09-26):** landed, then corrected after live testing. `--cert`
+alone was **not** sufficient — websockify accepts encrypted and unencrypted
+connections on the same port unless told otherwise, and `curl
+http://<ip>:48210/vnc.html` from the Mac returned **200** with the cert in
+place. Added `--ssl-only`, which is what actually closes the plaintext path.
+The suite now asserts it, since this is the kind of flag an edit could silently
+drop and leave the feature looking done.
 
 **Description**: **F15.5**'s TLS half. `start-desktop.sh:69` runs websockify
 with no `--cert`, so noVNC is served over `ws://`: screen contents and every
