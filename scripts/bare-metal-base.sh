@@ -107,8 +107,29 @@ echo "  packages: $(echo "$APT_PKGS" | wc -l) items"
 echo "$APT_PKGS" | xargs apt-get install -y --no-install-recommends
 echo "==> [5/9] apt packages done"
 
-# --- VNC desktop services (F14) ---
+# --- Cloud box hardening (F15) ---
+# Cloud only: this box is internet-facing and expendable, which the Pi and the
+# VM are not. Validate before reloading — an invalid drop-in on a box whose
+# only door is SSH is a lockout.
 REPO_DIR="$(dirname "${MANIFEST_DIR}")"
+SSHD_DROPIN_SRC="${REPO_DIR}/host-file-templates/etc/ssh/sshd_config.d/60-dome-hardening.conf"
+SSHD_DROPIN_DST="/etc/ssh/sshd_config.d/60-dome-hardening.conf"
+if [[ "${DOME_TARGET}" == "cloud" ]]; then
+    echo "==> Hardening sshd (no agent forwarding, no X11, no root login)"
+    install -m 0644 "${SSHD_DROPIN_SRC}" "${SSHD_DROPIN_DST}"
+    if ! sshd -t; then
+        echo "ERROR: sshd rejected ${SSHD_DROPIN_DST}; removing it and leaving sshd untouched" >&2
+        rm -f "${SSHD_DROPIN_DST}"
+        exit 1
+    fi
+    systemctl reload ssh
+    # Nothing here uses rpcbind, and it listens on 0.0.0.0:111.
+    systemctl mask --now rpcbind.socket rpcbind 2>/dev/null || true
+else
+    rm -f "${SSHD_DROPIN_DST}"
+fi
+
+# --- VNC desktop services (F14) ---
 VNC_UNIT_SRC="${REPO_DIR}/host-file-templates/etc/systemd/system/dome-vnc.service"
 VNC_FW_SRC="${REPO_DIR}/host-file-templates/etc/systemd/system/dome-vnc-firewall.service"
 if [[ "${DOME_DESKTOP}" == "vnc" && "${DOME_VNC_ACCESS}" != "none" ]]; then
@@ -122,12 +143,13 @@ if [[ "${DOME_DESKTOP}" == "vnc" && "${DOME_VNC_ACCESS}" != "none" ]]; then
         rm -f /etc/systemd/system/dome-vnc-firewall.service
     fi
     systemctl daemon-reload
-    systemctl enable dome-vnc.service
+    # Installed but NOT enabled (F15.9): an enabled unit is a standing intent
+    # to serve a desktop that nothing in the workflow ever revokes, so the box
+    # would re-arm itself on every boot. Arming is `make vnc-up`, always.
+    systemctl disable dome-vnc.service dome-vnc-firewall.service 2>/dev/null || true
+    echo "==> VNC units installed but not enabled; arm with: make -C terraform/oci vnc-up"
     if [[ "${DOME_VNC_ACCESS}" == "public" ]]; then
-        systemctl enable dome-vnc-firewall.service
-        echo "==> public mode: set a VNC password once with:  vncpasswd  (then: sudo systemctl restart dome-vnc)"
-    else
-        systemctl disable dome-vnc-firewall.service 2>/dev/null || true
+        echo "==> public mode: set a VNC password once with:  vncpasswd"
     fi
 else
     # Desktop off or access=none: leave no stale VNC units behind.
@@ -153,6 +175,7 @@ for sect in $(manifest_sections "${MANIFEST_DIR}/tools.txt"); do
     url=$(manifest_require "$sect" url "${MANIFEST_DIR}/tools.txt")
     args=$(manifest_field "$sect" args "${MANIFEST_DIR}/tools.txt")
     run_as_user=$(manifest_field "$sect" run_as_user "${MANIFEST_DIR}/tools.txt")
+    sha256=$(manifest_field "$sect" sha256 "${MANIFEST_DIR}/tools.txt")
     echo "  installing [$sect] via $method..."
     case "$method" in
         curl-sh) shell="sh" ;;
@@ -162,11 +185,24 @@ for sect in $(manifest_sections "${MANIFEST_DIR}/tools.txt"); do
             exit 1
             ;;
     esac
-    if [[ "$run_as_user" == "true" ]]; then
-        sudo -u "${DOME_USER}" bash -c "curl -LSfs '$url' | $shell -s -- $args"
-    else
-        curl -LSfs "$url" | "$shell" -s -- $args
+    # Download, verify, then execute (F15.2) — never pipe an unverified
+    # installer into a shell. Entries with no sha256 are vendor endpoints that
+    # serve changing content; tools.txt says which and why.
+    installer=$(mktemp)
+    curl -LSfs "$url" -o "$installer" \
+        || { echo "ERROR: failed to download [$sect] from $url" >&2; exit 1; }
+    if [[ -n "$sha256" ]]; then
+        manifest_verify_sha256 "$installer" "$sha256" \
+            || { rm -f "$installer"; exit 1; }
+        echo "  [$sect] sha256 verified"
     fi
+    chmod 0755 "$installer"
+    if [[ "$run_as_user" == "true" ]]; then
+        sudo -u "${DOME_USER}" "$shell" "$installer" $args
+    else
+        "$shell" "$installer" $args
+    fi
+    rm -f "$installer"
 done
 echo "==> [7/9] curl tools done"
 

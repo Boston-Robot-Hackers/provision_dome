@@ -46,11 +46,14 @@ resource "oci_core_security_list" "dome" {
   # (var.vnc_access = "public"): one port, 48210, a controllable desktop behind
   # a VNC password. tunnel/none keep the box SSH-only. `make vnc-up`/`vnc-down`
   # flip this as a manual override. See feature F14.
+  # The source is var.vnc_allowed_cidr, not 0.0.0.0/0 (F15.5): `make vnc-up`
+  # passes the caller's own address, so the internet is not on this port even
+  # while the desktop is up.
   dynamic "ingress_security_rules" {
     for_each = var.vnc_access == "public" ? toset([48210]) : toset([])
     content {
       protocol = "6" # TCP
-      source   = "0.0.0.0/0"
+      source   = var.vnc_allowed_cidr
       tcp_options {
         min = ingress_security_rules.value
         max = ingress_security_rules.value

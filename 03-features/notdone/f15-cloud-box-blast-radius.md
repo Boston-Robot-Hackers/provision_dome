@@ -6,11 +6,11 @@
 
 **Done:** no
 
-**Tasks File Created:** no
+**Tasks File Created:** yes
 
-**Tests Written:** no
+**Tests Written:** yes
 
-**Test Passing:** no
+**Test Passing:** yes (73 checks; suite 375 green)
 
 **Description**: Harden **the box** so that fully losing it costs only itself.
 Machine names (*the box*, *the robot*, *the Mac*, *the VM*, and `dome-docker`,
@@ -30,7 +30,7 @@ finding. Nothing below argues with that.
 
 The question is the next one: **from root on the box, what else falls?**
 Findings are graded on cost *beyond* the box — the GitHub org, the robot, the
-OCI tenancy, the Mac, Doppler — and on whether that cost is **live today** or
+OCI tenancy and the Mac — and on whether that cost is **live today** or
 merely reachable in a worst case.
 
 **Three traps this review had to correct itself on.** Each is recorded because
@@ -82,16 +82,14 @@ Recorded so the audit isn't re-run on settled ground. Verified live on
   cannot call the OCI API, which closes the worst pivot (box → tenancy).
 
 - **No live credentials on the box.** `~/.claude.json` has no `oauthAccount`
-  and no `primaryApiKey`, `~/.claude/.credentials.json` does not exist, and no
-  Doppler token is configured.
+  and no `primaryApiKey`, and `~/.claude/.credentials.json` does not exist.
 
 - **Secrets stay out of git.** `terraform.tfvars`, `*.tfstate`, and
   `manifest/user.txt` are all gitignored; a sweep of tracked files for key and
   token patterns found only documentation and placeholders.
 
-- **Third-party apt repos are properly pinned to keyrings** — all three
-  (`doppler`, `github-cli`, `vscode`) use `signed-by=`, none use
-  `apt-key`/unsigned.
+- **Third-party apt repos are properly pinned to keyrings** — both
+  (`github-cli`, `vscode`) use `signed-by=`, none use `apt-key`/unsigned.
 
 - **`unattended-upgrades` is active**; `rosutils` is cloned read-only over
   HTTPS.
@@ -172,9 +170,25 @@ not to type `-A`:
 - Generate a **dedicated keypair per cloud box** and point
   `var.ssh_public_key_path` at it — the variable already exists, so this is a
   `terraform.tfvars` line plus a doc change.
+
+  **This governs future boxes only.** `ssh_authorized_keys` is instance
+  metadata that cloud-init reads at **first boot**, so changing the variable
+  does not re-key a running instance. `dome-cloud-1` needs the new public key
+  appended to `~/.ssh/authorized_keys` by hand, login proven from a second
+  session, and only then the old entry removed.
+
 - Set `AllowAgentForwarding no` and `X11Forwarding no` in the box's sshd
   config (nothing in the workflow needs either; Foxglove and tunnel-mode VNC
   use `-L`, which is `AllowTcpForwarding`, not agent forwarding).
+
+  **There is no sshd config in this repo to edit.** Those settings are Ubuntu
+  image defaults, so this needs a new `/etc/ssh/sshd_config.d/` drop-in. It
+  cannot arrive by cloud-init either: `compute.tf:13-16` passes **no
+  `user_data`** — `metadata` carries only `ssh_authorized_keys`, and the
+  template is the hand-pasted console path. `scripts/bare-metal-base.sh` is
+  the only mechanism that reaches the live box, and it must `sshd -t` before
+  reloading, since an invalid drop-in locks out a box reachable only by SSH.
+
 - Add an explicit `ForwardAgent no` for the box in the laptop's `~/.ssh/config`
   as defense in depth.
 
@@ -208,15 +222,26 @@ interactive shell on every target. `rosutils` is cloned from
 `campusrover/rosutils` with **no branch or commit pin**, so whatever is on
 `main` at clone time runs as the user, everywhere.
 
-That file also contains a Doppler hook (`doppler configure get token`). It is
-inert today because no token is configured — but it means **one
-`doppler login` on the box would put the whole Doppler secret store one box
-compromise away.**
+That file also contained a secret-manager hook that read a Doppler token,
+which would have put a whole secret store one box compromise away had one ever
+been configured.
 
-**Recommendation.** Pin `rosutils` to a commit in `repos.txt` (the format
-already supports a branch field). Write down the rule that Doppler is never
-authenticated on a cloud target, and consider having the cloud path skip the
-Doppler hook outright.
+**Resolved by removal (2026-09-26): Doppler is gone from this project
+entirely** — the `[doppler]` apt repo is deleted, so the CLI the hook calls is
+no longer installed on any target and the hook cannot resolve a token. That is
+strictly better than a written rule not to log in, which this feature originally
+proposed: there is now nothing to log into.
+
+**Recommendation.** Pin `rosutils` to a commit in `repos.txt`. The Doppler half
+of this finding needs no further action.
+
+**The existing branch field cannot carry the pin.** `clone_section` passes it
+to `git clone --branch`, which accepts branches and tags only — a 40-hex SHA
+fails outright, and a tag can be moved by its author. Pinning to a commit means
+teaching the parser to recognize a SHA and the cloner to clone then
+`git checkout --detach`, **mirrored in the `Dockerfile`'s duplicated clone
+loop** — the divergence that already left the image ignoring
+`DOME_CLONE_OVERRIDE`.
 
 ### F15.4 — An exposed box accumulates credentials over time
 
@@ -236,7 +261,7 @@ that happens.
 login on a `public`-mode box.** If a GitHub credential is genuinely needed,
 use a **read-only deploy key scoped to one repo**, never an account key. Add a
 `make audit` target that fails if `~/.claude/.credentials.json`, `~/.config/gh`,
-`~/.git-credentials`, a Doppler token, or any private key appears on the box.
+`~/.git-credentials`, or any private key appears on the box.
 
 ### F15.5 — The public desktop is plaintext and unthrottled
 
@@ -258,11 +283,17 @@ password to 8 characters**, so a long passphrase provides no extra strength.
 **Recommendation.** Two independent improvements, either of which helps:
 
 - Give websockify `--cert` (self-signed is enough for this) so the desktop is
-  `wss://`.
+  `wss://`. Say in the docs that the browser will warn about the self-signed
+  certificate — an unexplained warning on a page the user has just been told to
+  distrust is worse than no change.
 - **Narrow the ingress CIDR.** `network.tf:53` hardcodes `source =
   "0.0.0.0/0"`; making it a variable defaulting to the user's own IP removes
   the entire internet from the threat surface and costs nothing in
   convenience.
+- **Document the 8-character truncation next to the `vncpasswd` step.** This is
+  a doc change, not a code one, and it belongs in the recommendation rather
+  than only in the finding above: a user who picks a long passphrase today gets
+  no benefit from it and has no way to find that out.
 
 ### F15.6 — Root-compartment placement
 
@@ -284,7 +315,11 @@ off unless a concrete need appears.
 - **`rpcbind` listens on `0.0.0.0:111`.** Blocked by both the OCI security list
   and the local iptables policy, but nothing in this project uses it — mask
   the socket.
-- **`fail2ban` inactive** — low value for key-only SSH, real value for 48210.
+- **`fail2ban` inactive** — low value for key-only SSH, and the value it would
+  add on 48210 is **not available off the shelf**: there is no stock filter for
+  websockify or VNC, so it means authoring one against websockify's output.
+  F15.5's CIDR half removes the internet from that port outright and
+  supersedes it. **Skipped deliberately**, not overlooked.
 - **`permitrootlogin without-password`** — the OCI image's root key carries a
   forced command, but `PermitRootLogin no` is cleaner and costs nothing.
 - **`ubuntu ALL=(ALL) NOPASSWD:ALL`** — in scope under "box expendable", but
@@ -325,6 +360,52 @@ Mac or GitHub credentials into anything that page shows. F15.5's TLS half also
 helps by giving the origin an identity. Keep XQuartz off the Mac; if it is ever
 installed, set `X11Forwarding no` on the box.
 
+### F15.9 — Stopping the box does not disarm it
+
+**Severity: Medium.** A design defect in F14, found 2026-09-26 by assuming a
+stopped box was a closed one and being wrong.
+
+**The invariant, per the user: *stopped should mean disarmed.*** It does not
+hold today.
+
+`make stop` issues a `SOFTSTOP` and nothing else. After it:
+
+- the security list still admits **`48210` from `0.0.0.0/0`**, and
+- `dome-vnc.service` and `dome-vnc-firewall.service` are both **`enabled`**.
+
+So `make start` silently restores a publicly reachable desktop — no
+`vnc-up`, no prompt, no output saying so. Disarming requires remembering a
+separate `make vnc-down`, and the whole point of stopping the box between
+sessions is that it is the thing you *do* remember.
+
+This also quietly widens every other finding here: the exposure window is not
+"while I am using it" but "from the first `vnc-up` until I happen to run
+`vnc-down`", spanning any number of stop/start cycles.
+
+**Recommendation.** Make the lifecycle target enforce the invariant rather
+than rely on a second command:
+
+- **`make stop` closes the port** — run the existing `vnc_access=none` apply
+  as part of stopping. The security list is the authoritative boundary, so
+  this alone establishes the invariant.
+- **Consider also not enabling the units on boot**, so that arming is always
+  an explicit `vnc-up`. Defense in depth: with the port closed at the edge a
+  running `dome-vnc` is unreachable anyway, but "enabled" is a standing
+  intent to serve that nothing in the workflow ever revokes.
+- **Watch for tfvars drift.** `vnc-up`/`vnc-down` flip `vnc_access` with
+  `-var` and `-target` overrides, so a later full `terraform apply` re-reads
+  `terraform.tfvars` and can silently reopen the port. Whichever way this is
+  fixed, the steady-state value in `tfvars` must agree.
+
+  **This is latent, not present.** `terraform.tfvars` does not set
+  `vnc_access` today, so it takes the variable's `none` default and a full
+  apply currently closes the port rather than opening it. The drift appears the
+  moment someone writes `vnc_access = "public"` into that file — which is why
+  the steady state belongs in `terraform.tfvars.example` as a stated rule.
+
+**Status:** the live box was disarmed by hand on 2026-09-26 (security list now
+admits SSH only). The defect itself is unfixed.
+
 ---
 
 ## Suggested order
@@ -337,18 +418,23 @@ depend on conditions that do not currently hold.
    findings that are unconditionally live**, and they apply to the *robot*,
    which is not expendable. No box compromise, credential, or network path is
    required for these to bite.
-2. **F15.5 (CIDR half)** — narrow 48210 from `0.0.0.0/0` to one IP. One
+2. **F15.9** — make `make stop` close the port, so *stopped means disarmed*.
+   Small, and it bounds the exposure window for every other finding here.
+3. **F15.5 (CIDR half)** — narrow 48210 from `0.0.0.0/0` to one IP. One
    variable; removes the internet from the attack surface.
-3. **F15.4** — write down the no-interactive-login rule; add `make audit`.
+4. **F15.4** — write down the no-interactive-login rule; add `make audit`.
    Prevents the box from silently accumulating what it currently lacks.
-4. **F15.1** — dedicated box key + `AllowAgentForwarding no`. Preventive, and
+5. **F15.1** — dedicated box key + `AllowAgentForwarding no`. Preventive, and
    worth doing before F08 adds the missing network leg. Note the fix lives on
    **the Mac** (a per-box keypair), not on the box.
-5. **F15.5 (TLS half)**, **F15.6**, **F15.7**, **F15.8**.
+6. **F15.5 (TLS half)**, **F15.6**, **F15.7**, **F15.8**.
 
 **Deliberately not in F15: a review of the Mac.** It outranks every machine
 here (`~/.oci/oci_api_key.pem` alone is the whole tenancy), but it is not
-reachable from the box and belongs in its own feature. Worth opening one.
+reachable from the box, so it belongs in its own feature — now **F16**
+(`03-features/notdone/f16-workstation-key-custody.md`). F16 found both of the
+Mac's crown-jewel private keys stored unencrypted, which makes it the higher
+priority of the two.
 
 ## How to Demo
 
@@ -372,4 +458,10 @@ the F15 changes applied.
    is what closes the git-borne route to the robot.
 2. The audit passes, reporting no credential files and no private keys.
 3. The connection is refused at the OCI edge, not merely password-prompted.
-4. Each resolves to the exact pinned tag/commit/digest, not a moving branch.
+4. Each resolves to the exact pinned commit/digest, not a moving branch. If
+   `claude-code`'s installer offers no version pin, the expected result is the
+   recorded finding saying so — see F15.2.
+
+**Keep a second SSH session open throughout.** The sshd drop-in and the key
+rotation can each lock you out of a box whose only other door is the VNC
+desktop this feature is busy closing.

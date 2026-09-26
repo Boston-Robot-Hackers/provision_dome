@@ -42,9 +42,15 @@ grep -q '127.0.0.1:${TUNNEL_PORT}' "${SD}" \
     || fail "start-desktop.sh tunnel bind missing"
 [[ -f "${REPO_DIR}/host-file-templates/etc/systemd/system/dome-vnc.service" ]] \
     && pass "dome-vnc.service template exists" || fail "dome-vnc.service template missing"
-grep -q 'systemctl enable dome-vnc.service' "${BMB}" \
-    && pass "bare-metal-base.sh enables dome-vnc.service" \
-    || fail "bare-metal-base.sh does not enable dome-vnc.service"
+# F15.9 changed this: the unit is installed but deliberately NOT enabled, so a
+# reboot leaves the box disarmed and arming is always an explicit `vnc-up`.
+grep -q 'install -m 0644 "${VNC_FW_SRC}"' "${BMB}" \
+    && grep -q '/etc/systemd/system/dome-vnc.service' "${BMB}" \
+    && pass "bare-metal-base.sh installs the dome-vnc units" \
+    || fail "bare-metal-base.sh does not install the dome-vnc units"
+grep -qE '^[[:space:]]*systemctl enable dome-vnc' "${BMB}" \
+    && fail "bare-metal-base.sh enables a VNC unit at boot (F15.9: it must not)" \
+    || pass "bare-metal-base.sh leaves the VNC units disabled (F15.9)"
 bash -n "${SD}" && pass "syntax: start-desktop.sh" || fail "syntax: start-desktop.sh"
 bash -n "${BMB}" && pass "syntax: bare-metal-base.sh" || fail "syntax: bare-metal-base.sh"
 

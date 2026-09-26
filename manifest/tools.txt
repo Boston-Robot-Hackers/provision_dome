@@ -1,15 +1,33 @@
 # Curl-installed tools (not available via apt).
-# method      = curl-sh:   pipe URL to sh with optional args.
-# method      = curl-bash: pipe URL to bash with optional args.
+# method      = curl-sh:   download, verify, run with sh and optional args.
+# method      = curl-bash: download, verify, run with bash and optional args.
+# sha256      = digest of the installer, verified before it is executed.
+#               Required for any URL we can pin; see below.
 # run_as_user = true: run as DOME_USER instead of root (for installers that
 #               write into $HOME and refuse to run under sudo).
+#
+# Pinning rule (F15.2): these installers run as root on every target, the Pi
+# included, so a compromise upstream is root on the robot. Pin to an immutable
+# commit SHA, never a branch and never a tag — a tag can be moved by its
+# author, which would defeat the sha256 below. Bumping a pin is a review step,
+# not a routine update: re-read the installer at the new commit first.
 
 [mcfly]
 method = curl-sh
-url    = https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh
+url    = https://raw.githubusercontent.com/cantino/mcfly/17f03db47b5ba9141d7b5df9f652a421b6fb99be/ci/install.sh
+sha256 = 356a67566d1b7b2975500878ae9e4e0f4a23052e57c846755169d242be00bba3
 args   = --git cantino/mcfly --force
 
+# No sha256: claude.ai/install.sh is a vendor endpoint that serves changing
+# content, so a digest here would break every run the moment it is edited.
+# What it does offer is a version argument (stable|latest|VERSION) and its own
+# integrity check — the bootstrap verifies the binary it downloads against a
+# SHA256 in the vendor's manifest, and refuses to install on a mismatch. So
+# the payload is verified even though the bootstrap script is not pinned.
+# args = stable selects the stable channel rather than the bleeding one; use a
+# literal version here instead if an exact pin is ever wanted.
 [claude-code]
 method      = curl-bash
 url         = https://claude.ai/install.sh
+args        = stable
 run_as_user = true

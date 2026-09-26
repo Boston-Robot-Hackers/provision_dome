@@ -80,6 +80,14 @@ clone_section() {
             sudo -u "${DOME_USER}" git clone "${REPO_URL}" "${base_dir}/${REPO_DEST}" \
                 || { echo "ERROR: failed to clone ${REPO_URL}" >&2; exit 1; }
         fi
+        # Pinned commit (F15.3): a repo left on the default branch when a pin
+        # was asked for is the silent-wrong-version case the pin exists to
+        # prevent, so a failed checkout is fatal like a failed clone.
+        if [[ -n "${REPO_COMMIT}" ]]; then
+            echo "  Pinning ${REPO_DEST} to ${REPO_COMMIT}"
+            sudo -u "${DOME_USER}" git -C "${base_dir}/${REPO_DEST}" checkout --detach "${REPO_COMMIT}" \
+                || { echo "ERROR: failed to check out ${REPO_COMMIT} in ${REPO_DEST}" >&2; exit 1; }
+        fi
     done < <(awk -v s="${section}" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' "${MANIFEST_DIR}/repos.txt")
 }
 clone_section root "${DOME_HOME}"

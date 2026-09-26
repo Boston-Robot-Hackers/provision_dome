@@ -19,8 +19,30 @@ ROS graph is self-contained.
   pricing are in `02-doc/notes.md`, *Dev host options* — this guide does not
   duplicate them.
 
-- Your SSH **public** key (`~/.ssh/id_ed25519.pub`). Only the public half
-  ever leaves your Mac.
+- A **dedicated SSH keypair for this box** — not your everyday one:
+
+  ```sh
+  ssh-keygen -t ed25519 -f ~/.ssh/id_dome_cloud -C dome-cloud-1
+  ```
+
+  Only the public half ever leaves your Mac. Your `~/.ssh/id_ed25519` is
+  simultaneously your GitHub key and your robot key, so giving the box an
+  identity of its own means a compromised box cannot sign as you. Point
+  `ssh_public_key_path` at `~/.ssh/id_dome_cloud.pub` in
+  `terraform/oci/terraform.tfvars`.
+
+  Add a matching block to `~/.ssh/config` on the Mac:
+
+  ```
+  Host dome-cloud-1 <public-ip>
+      IdentityFile ~/.ssh/id_dome_cloud
+      IdentitiesOnly yes
+      ForwardAgent no
+  ```
+
+  The explicit `ForwardAgent no` matters: a forwarded agent is a signing
+  oracle, and a bare `Host *` block that ever gains `ForwardAgent yes` would
+  otherwise reach this box too.
 
 - An **Ubuntu 24.04 (noble)** image. A different release fails partway
   through `bare-metal-base.sh` with cryptic apt errors, not a clear "wrong
@@ -108,24 +130,59 @@ From the repo root, `make build` is a shortcut for this command.
 The workspace then contains only the public packages, so the private `dome*`
 packages will not be present.
 
+### The rules for this box
+
+The box is **expendable** — losing it should cost only itself. That premise is
+not a property of the machine; it is a property of what you put on it, and it
+stops being true the moment you log into something. So:
+
+- **No interactive credential login on a `public`-mode box.** No `claude`
+  login, no `gh auth login`, no secret-manager login of any kind. Each writes a
+  live token to disk on a machine reachable from the internet.
+
+- **Check, don't remember.** From your Mac:
+
+  ```sh
+  make -C terraform/oci audit
+  ```
+
+  It fails if the box holds a Claude or `gh` token, `.git-credentials`, or any
+  private key. Run it before you arm the desktop.
+
+- **`ubuntu ALL=(ALL) NOPASSWD:ALL` is deliberate**, not an oversight. Under
+  "the box is expendable" a passwordless sudo costs nothing extra — an attacker
+  who reaches the desktop already has the session. It is recorded here so it
+  stays a decision.
+
+- **`fail2ban` is deliberately not installed.** For key-only SSH it adds
+  nothing, and there is no stock filter for websockify or VNC, so guarding
+  48210 with it would mean authoring one. Restricting that port to your own
+  address (`make vnc-up`) removes the internet from it outright, which is
+  strictly better.
+
 ### Optional: a private cloud dev box
 
 If this is **your own** box and you want the private repos, opt in
-deliberately. Remove `DOME_CLONE_OVERRIDE` from `manifest/user.txt`, then
-**generate a host-specific GitHub key on the cloud host. Do NOT copy your
-personal key here.**
+deliberately: remove `DOME_CLONE_OVERRIDE` from `manifest/user.txt` and give
+the box a credential that can only read.
+
+**Use a read-only deploy key, scoped to one repository** — github.com → the
+repo → Settings → Deploy keys, with *Allow write access* left **off**:
 
 ```sh
 ssh-keygen -t ed25519 -C "cloud-dome" -f ~/.ssh/id_ed25519
-cat ~/.ssh/id_ed25519.pub     # add at github.com → Settings → SSH keys, named "cloud-dome"
-ssh -T git@github.com         # expect "Hi <you>!"
+cat ~/.ssh/id_ed25519.pub     # add as a deploy key on the one repo that needs it
 ```
 
-This must be the key of the user that runs the build (`<DOME_USER>`), stored
-under its default name `~/.ssh/id_ed25519`. `bare-metal-build.sh` clones the
-private repos as that user, so a key elsewhere, or one you delete afterward,
-makes the build fail at the first clone with `Permission denied (publickey)`.
-The key can also push to your repos, so anyone who reaches this host can too.
+It must belong to the user that runs the build (`<DOME_USER>`) under the
+default name `~/.ssh/id_ed25519`; `bare-metal-build.sh` clones as that user, so
+a key elsewhere fails at the first clone with `Permission denied (publickey)`.
+
+**Never an account key.** An account key can push to every repo you can, and
+the robot *executes what those repos serve* at its next build — so a box
+compromise would reach the robot by way of git, without ever needing a route to
+it. A deploy key without write access cannot do that. One key per repo is the
+cost; revocation granularity is the payoff.
 
 ---
 
@@ -209,21 +266,45 @@ Understood trade-off: whoever has the URL and password controls **that box**
 
 ```sh
 printf 'DOME_VNC_ACCESS=public\n' >> manifest/user.txt
-sudo scripts/bare-metal-base.sh          # + dome-vnc-firewall.service (opens 48210)
+sudo scripts/bare-metal-base.sh          # installs the units; does NOT enable them
 vncpasswd                                # set the VNC password once
-sudo systemctl restart dome-vnc
 ```
 
-Open the OCI edge port by setting `vnc_access = "public"` in
-`terraform/oci/terraform.tfvars` and running `terraform apply` — or, ad hoc from
-your Mac, `make -C terraform/oci vnc-up`. Then, from any browser:
+**The VNC password is silently truncated to 8 characters** by the protocol, so
+a long passphrase buys you nothing. Pick 8 random characters and treat them as
+the whole of the secret.
+
+Arm it from your Mac with `make -C terraform/oci vnc-up`. That opens the OCI
+edge **to your own address only** and starts the desktop; the units are not
+enabled at boot, so a reboot leaves the box closed until you arm it again.
 
 ```
-http://<public-ip>:48210/vnc.html?autoconnect=true
+https://<public-ip>:48210/vnc.html?autoconnect=true
 ```
 
-Close it again with `make -C terraform/oci vnc-down` (stops the service and
-re-applies the SSH-only security list).
+The certificate is self-signed, so **the browser will warn on the first
+visit** — expected. What it buys is that the session is encrypted: without it,
+the screen, every keystroke, and the crackable VNC challenge-response all cross
+the internet in the clear.
+
+If your address changes, re-run `vnc-up`, or pass a range:
+`make -C terraform/oci vnc-up CIDR=1.2.3.0/24`.
+
+Close it again with `make -C terraform/oci vnc-down`, which stops the service
+and re-applies the SSH-only security list. **`make stop` now does this for
+you** — stopped means disarmed.
+
+#### Treat that browser tab as hostile
+
+The desktop is served by a machine you have decided is expendable, which means
+its noVNC page is untrusted JavaScript running in *your* browser.
+
+- Open it in a **separate browser profile with no signed-in sessions.**
+- **Never type Mac, GitHub, or any other credential** into anything that page
+  shows you.
+- Keep **XQuartz off the Mac.** It is absent today, which is what makes
+  `ssh -X` to this box a non-issue; the box's sshd also sets
+  `X11Forwarding no`.
 
 **Software GL only.** `rviz2` on llvmpipe is usable; Gazebo is not pleasant.
 Prefer Foxglove.

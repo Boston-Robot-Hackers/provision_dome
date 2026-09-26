@@ -70,7 +70,7 @@ echo "$ros_pkgs" | grep -qx "dome-docker" \
     || pass "packages.txt [ros] has no bogus 'dome-docker' entry"
 
 echo "--- apt-repos.txt sections and fields ---"
-for sect in doppler github-cli vscode; do
+for sect in github-cli vscode; do
     for field in key_url key_file key_dearmor list packages; do
         source "${MANIFEST_DIR}/lib.sh"
         val=$(manifest_field "$sect" "$field" "${MANIFEST_DIR}/apt-repos.txt")
@@ -128,7 +128,6 @@ manifest_require "testsect" "mykey" "$tmpfile" >/dev/null && pass "manifest_requ
 rm -f "$tmpfile"
 
 echo "--- Dockerfile.base no hardcoded apt-repo URLs ---"
-assert_no_hardcode "${REPO_DIR}/Dockerfile.base" "packages\.doppler\.com" "Doppler URL"
 assert_no_hardcode "${REPO_DIR}/Dockerfile.base" "cli\.github\.com/packages/githubcli" "GitHub CLI URL"
 assert_no_hardcode "${REPO_DIR}/Dockerfile.base" "cantino/mcfly" "mcfly URL"
 

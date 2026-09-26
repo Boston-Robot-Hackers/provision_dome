@@ -1,5 +1,10 @@
+# A 40-hex trailing field pins a repo to that commit (F15.3). rosutils is
+# pinned because manifest/bashrc sources its ros2_robot_bashrc.bash into every
+# interactive shell on every target, the robot included — an unreviewed upstream
+# change runs as the user everywhere. Moving the pin is a review step: read the
+# diff first.
 [root]
-https://github.com/campusrover/rosutils.git rosutils
+https://github.com/campusrover/rosutils.git rosutils 1e0fbebea7ced8c63ea1bb60031d06e42a3daedf
 https://github.com/luxonis/depthai-python.git depthai-python
 https://github.com/pitosalas/linorobot2_hardware.git linorobot2_hardware
 git@github.com:Boston-Robot-Hackers/j3.git j3 PRIVATE_REPO

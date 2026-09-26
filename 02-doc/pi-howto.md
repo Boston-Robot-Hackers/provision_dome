@@ -121,7 +121,7 @@ Runs as root. Reads from `manifest/` to install:
 - All apt, ROS, and pip packages from `manifest/packages.txt` and
   `manifest/pip.txt`, including Pi-hardware packages: `raspi-config`,
   `i2c-tools`, `RPi.GPIO`, `spidev`
-- Third-party apt repos (Doppler, GitHub CLI, VS Code) from
+- Third-party apt repos (GitHub CLI, VS Code) from
   `manifest/apt-repos.txt`
 - Curl-installed tools (mcfly) from `manifest/tools.txt`
 - Initialises rosdep

@@ -65,5 +65,26 @@ echo "==> DOME_VNC_ACCESS=${DOME_VNC_ACCESS}: TigerVNC :1 (loopback) -> websocki
 vncserver -kill :1 >/dev/null 2>&1 || true
 vncserver :1 -localhost yes -geometry 1440x900
 
+# TLS in public mode only (F15.5). Without it noVNC is served over ws://, so
+# screen contents and keystrokes cross the internet in the clear and the VNC
+# challenge-response can be captured and cracked offline. Tunnel mode is
+# already inside an SSH channel and gains nothing from a second wrapper.
+# Self-signed is enough here: it encrypts the session and gives the origin an
+# identity. The browser will warn on first visit — that is expected, and
+# cloud-howto.md says so.
+TLS_ARGS=()
+if [[ "${DOME_VNC_ACCESS}" == "public" ]]; then
+    CERT="${HOME}/.vnc/novnc.pem"
+    if [[ ! -f "${CERT}" ]]; then
+        echo "==> generating self-signed certificate ${CERT}"
+        mkdir -p "${HOME}/.vnc"
+        openssl req -x509 -nodes -newkey rsa:2048 -days 825 \
+            -keyout "${CERT}" -out "${CERT}" -subj "/CN=dome-cloud" 2>/dev/null \
+            || { echo "ERROR: could not generate ${CERT}" >&2; exit 1; }
+        chmod 600 "${CERT}"
+    fi
+    TLS_ARGS=(--cert="${CERT}")
+fi
+
 echo "==> websockify ${BIND} -> localhost:5901 (noVNC web root ${NOVNC_WEB})"
-exec websockify --web="${NOVNC_WEB}" "${BIND}" localhost:5901
+exec websockify "${TLS_ARGS[@]}" --web="${NOVNC_WEB}" "${BIND}" localhost:5901

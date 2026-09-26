@@ -14,7 +14,7 @@ All build configuration lives in `manifest/`. Scripts are thin executors. If add
 | `packages.txt` | apt and ROS packages (`[apt]`/`[ros]` sections) |
 | `pip.txt` | pip3 packages |
 | `repos.txt` | git repos to clone (`[root]`/`[ros_ws]`/`[uros_ws]` sections) |
-| `apt-repos.txt` | third-party apt repos (Doppler, GitHub CLI, VS Code) |
+| `apt-repos.txt` | third-party apt repos (GitHub CLI, VS Code) |
 | `tools.txt` | curl-installed tools (mcfly) |
 | `colcon.txt` | colcon build flags and package skip list |
 | `rosdep.txt` | rosdep install skip keys |
@@ -48,7 +48,7 @@ Both paths produce identical ROS2 environments: same packages, repos, workspace 
 ## Package Scope
 
 - ROS2 base + configured distro packages
-- Third-party apt repos (Doppler, GitHub CLI, VS Code)
+- Third-party apt repos (GitHub CLI, VS Code)
 - Curl-installed tools (mcfly)
 - pip3 packages
 - Multiple git workspaces: root, ros_ws, uros_ws

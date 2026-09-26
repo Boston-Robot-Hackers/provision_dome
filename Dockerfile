@@ -42,6 +42,9 @@ RUN --mount=type=ssh \
         else \
           git clone "${REPO_URL}" "${base_dir}/${REPO_DEST}" || { echo "ERROR: failed to clone ${REPO_URL}"; exit 1; }; \
         fi; \
+        if [[ -n "${REPO_COMMIT}" ]]; then \
+          git -C "${base_dir}/${REPO_DEST}" checkout --detach "${REPO_COMMIT}" || { echo "ERROR: failed to check out ${REPO_COMMIT} in ${REPO_DEST}"; exit 1; }; \
+        fi; \
       done < <(awk -v s="${section}" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' /manifest/repos.txt); \
     }; \
     clone_section root "${DOME_HOME}"; \

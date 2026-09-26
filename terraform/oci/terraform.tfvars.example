@@ -10,7 +10,24 @@ compartment_ocid = "ocid1.tenancy.oc1..REPLACE_ME"
 # region              = "us-ashburn-1"
 # availability_domain = "OePW:US-ASHBURN-AD-1"
 # instance_name       = "dome-cloud-1"
-# ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+# ssh_public_key_path = "~/.ssh/id_dome_cloud.pub"
 # ocpus               = 4
 # memory_gb           = 24
 # boot_volume_gb      = 100
+
+# Keep vnc_access OUT of this file (F15.9). Its default is "none", so a full
+# `terraform apply` closes the public VNC port rather than opening it. Writing
+# vnc_access = "public" here makes the steady state "open", and any later apply
+# then silently reopens 48210 behind `make vnc-up`/`vnc-down`'s back.
+# Arming is a command, not a setting:  make vnc-up   (and: make vnc-down)
+
+# vnc_allowed_cidr is likewise set by `make vnc-up` from your own address.
+# Only set it here if you want a fixed range as the steady state.
+# vnc_allowed_cidr = "0.0.0.0/0"
+
+# ssh_public_key_path points at a key that exists ONLY for this box (F15.1):
+#   ssh-keygen -t ed25519 -f ~/.ssh/id_dome_cloud -C dome-cloud-1
+# Your ~/.ssh/id_ed25519 is simultaneously your GitHub key and your robot key;
+# keeping it off the box means a box compromise cannot sign as you. Note this
+# governs NEW boxes only — cloud-init reads ssh_authorized_keys at first boot,
+# so an existing instance has to be re-keyed by hand.

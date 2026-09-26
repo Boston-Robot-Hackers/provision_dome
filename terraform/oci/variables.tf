@@ -43,6 +43,16 @@ variable "vnc_access" {
   }
 }
 
+variable "vnc_allowed_cidr" {
+  description = "Source CIDR allowed to reach the public noVNC port 48210 (F15.5). Defaults to the whole internet so a plain apply keeps working; `make vnc-up` overrides it with your own address as a /32, which is the path you should normally use. SSH (22) is unaffected — it is key-only and locking it to one address locks you out from anywhere else."
+  type        = string
+  default     = "0.0.0.0/0"
+  validation {
+    condition     = can(cidrhost(var.vnc_allowed_cidr, 0))
+    error_message = "vnc_allowed_cidr must be a valid CIDR block, e.g. 203.0.113.4/32."
+  }
+}
+
 variable "ocpus" {
   description = "A1.Flex OCPU count. The Always Free arm allowance is 4 OCPU total across all A1 instances."
   type        = number

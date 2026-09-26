@@ -5,13 +5,6 @@
 # {arch} expands to $(dpkg --print-architecture) at install time.
 # {key_file} expands to the key_file value.
 
-[doppler]
-key_url     = https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key
-key_file    = /usr/share/keyrings/doppler-archive-keyring.gpg
-key_dearmor = yes
-list        = deb [signed-by={key_file}] https://packages.doppler.com/public/cli/deb/debian any-version main
-packages    = doppler
-
 [github-cli]
 key_url     = https://cli.github.com/packages/githubcli-archive-keyring.gpg
 key_file    = /usr/share/keyrings/githubcli-archive-keyring.gpg
