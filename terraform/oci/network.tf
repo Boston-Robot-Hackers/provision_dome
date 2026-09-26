@@ -1,6 +1,7 @@
 # A minimal public network: one VCN, one public subnet reachable from the
-# internet, and a security list that admits only inbound SSH. Foxglove and
-# noVNC are reached over `ssh -L` tunnels, so no other port is ever opened.
+# internet, and a security list that admits inbound SSH always, plus the single
+# noVNC port 48210 when var.vnc_access = "public" (F14). Foxglove and the
+# tunnel-mode desktop are reached over `ssh -L`, so no other port is opened.
 
 resource "oci_core_vcn" "dome" {
   compartment_id = var.compartment_ocid
@@ -41,12 +42,12 @@ resource "oci_core_security_list" "dome" {
     }
   }
 
-  # TEMPORARY test ports, opened only when var.vnc_test = true (via
-  # `make vnc-up`; closed again by `make vnc-down`). 48210 = passwordless
-  # view-only noVNC, 48211 = password-protected control. Steady state is
-  # false, so a plain `terraform apply` keeps the box SSH-only.
+  # Public noVNC port, opened only in public VNC-access mode
+  # (var.vnc_access = "public"): one port, 48210, a controllable desktop behind
+  # a VNC password. tunnel/none keep the box SSH-only. `make vnc-up`/`vnc-down`
+  # flip this as a manual override. See feature F14.
   dynamic "ingress_security_rules" {
-    for_each = var.vnc_test ? toset([48210, 48211]) : toset([])
+    for_each = var.vnc_access == "public" ? toset([48210]) : toset([])
     content {
       protocol = "6" # TCP
       source   = "0.0.0.0/0"

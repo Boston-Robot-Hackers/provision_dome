@@ -45,6 +45,14 @@ tigervnc-standalone-server
 tigervnc-tools
 websockify
 xfce4
+xfce4-terminal
+terminator
+mousepad
+thunar
+xfce4-taskmanager
+xfce4-screenshooter
+firefox
+htop
 
 [ros]
 ament-cmake-clang-format

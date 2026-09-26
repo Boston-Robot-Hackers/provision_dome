@@ -1,0 +1,21 @@
+[Unit]
+# Dome noVNC desktop (F14). One TigerVNC session on :1, bridged to noVNC by
+# websockify. The bind address (public 0.0.0.0:48210 vs loopback 127.0.0.1:6080)
+# is chosen by scripts/start-desktop.sh from DOME_VNC_ACCESS. Installed and
+# enabled by scripts/bare-metal-base.sh when DOME_DESKTOP=vnc and
+# DOME_VNC_ACCESS != none.
+Description=Dome noVNC desktop (TigerVNC + websockify)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@@DOME_USER@@
+Environment=HOME=/home/@@DOME_USER@@
+ExecStart=/home/@@DOME_USER@@/provision_dome/scripts/start-desktop.sh
+ExecStopPost=-/usr/bin/vncserver -kill :1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

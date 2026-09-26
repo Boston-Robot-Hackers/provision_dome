@@ -2,19 +2,31 @@
 ROS_DISTRO=kilted
 UBUNTU_CODENAME=noble
 DOME_USER=robot
+
 # DOME_TARGET=pi|vm|cloud — pi installs Pi-hardware packages/repos/overlays;
 # vm and cloud skip them. cloud additionally enables swap (like pi) for a
 # small cloud shape; see 02-doc/cloud-howto.md.
 DOME_TARGET=pi
+
 # SWAP_SIZE_MB — swapfile size in MB for pi and cloud, guards against colcon
 # build OOM. Not created for vm. 0 disables.
 SWAP_SIZE_MB=2048
+
 # DOME_MODE=native|docker — native skips Docker install/dome.service (Scenarios 1/2).
 # Only Scenario 3 (docker-howto.md) sets DOME_MODE=docker in manifest/user.txt.
 DOME_MODE=native
+
 # DOME_DESKTOP=none|vnc — vnc installs an xfce/TigerVNC/noVNC desktop for
 # tools needing a real X display (e.g. rviz2). Off by default; see cloud-howto.md.
 DOME_DESKTOP=none
+
+# DOME_VNC_ACCESS=none|public|tunnel — how the vnc desktop is reached (F14).
+# Requires DOME_DESKTOP=vnc. none = no remote VNC; public = one TigerVNC served
+# on 0.0.0.0:48210 (VNC password, set once with vncpasswd) reachable by URL,
+# with the firewall opened by Terraform var vnc_access; tunnel = loopback only,
+# reached over `ssh -L` by a user whose public key is on the box.
+DOME_VNC_ACCESS=none
+
 # DOME_CLONE_OVERRIDE — unset by default: clone every repo in repos.txt. Set it
 # in manifest/user.txt (or the environment) to change that:
 #   PUBLIC_ONLY  skip repos marked PRIVATE_REPO (no GitHub credential needed)

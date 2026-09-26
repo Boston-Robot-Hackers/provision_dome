@@ -103,6 +103,8 @@ cd ~/provision_dome
 sudo scripts/bare-metal-build.sh
 ```
 
+From the repo root, `make build` is a shortcut for this command.
+
 The workspace then contains only the public packages, so the private `dome*`
 packages will not be present.
 
@@ -168,23 +170,60 @@ Connect the Foxglove app on the Mac to `ws://localhost:8765`.
 
 ## Step 7: Optional Desktop (rviz2)
 
-For tools needing a real X display, install the desktop by setting
+For tools needing a real X display, install the xfce desktop by setting
 `DOME_DESKTOP=vnc` and re-running the base setup:
 
 ```sh
 printf 'DOME_DESKTOP=vnc\n' >> manifest/user.txt
 sudo scripts/bare-metal-base.sh
-scripts/start-desktop.sh
 ```
 
-`start-desktop.sh` binds **both** the VNC server and websockify to loopback
-only. Reach it over an SSH tunnel:
+Then choose **one** access mode per box with `DOME_VNC_ACCESS` (F14). It is a
+single controllable TigerVNC desktop either way — the modes differ only in who
+can reach it and how.
+
+### Mode A — `tunnel` (key-gated, private)
+
+Loopback only, reached over an SSH tunnel by a user whose key is on the box.
+Nothing is exposed to the internet.
+
+```sh
+printf 'DOME_VNC_ACCESS=tunnel\n' >> manifest/user.txt
+sudo scripts/bare-metal-base.sh          # installs + enables dome-vnc.service
+```
+
+From your Mac:
 
 ```sh
 ssh -L 6080:localhost:6080 <DOME_USER>@<public-ip>
 ```
 
-Then browse to `http://localhost:6080`.
+Then browse `http://localhost:6080`. (`make desktop` on the box runs the same
+server in the foreground if you would rather not use the service.)
+
+### Mode B — `public` (URL + VNC password)
+
+A controllable desktop anyone can reach at a URL, protected by a VNC password.
+Understood trade-off: whoever has the URL and password controls **that box**
+(and only that box).
+
+```sh
+printf 'DOME_VNC_ACCESS=public\n' >> manifest/user.txt
+sudo scripts/bare-metal-base.sh          # + dome-vnc-firewall.service (opens 48210)
+vncpasswd                                # set the VNC password once
+sudo systemctl restart dome-vnc
+```
+
+Open the OCI edge port by setting `vnc_access = "public"` in
+`terraform/oci/terraform.tfvars` and running `terraform apply` — or, ad hoc from
+your Mac, `make -C terraform/oci vnc-up`. Then, from any browser:
+
+```
+http://<public-ip>:48210/vnc.html?autoconnect=true
+```
+
+Close it again with `make -C terraform/oci vnc-down` (stops the service and
+re-applies the SSH-only security list).
 
 **Software GL only.** `rviz2` on llvmpipe is usable; Gazebo is not pleasant.
 Prefer Foxglove.

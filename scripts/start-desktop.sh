@@ -1,28 +1,69 @@
 #!/usr/bin/env bash
-# Start the optional noVNC desktop for a cloud dev host (F07, DOME_DESKTOP=vnc).
-# TigerVNC serves display :1 on loopback only; websockify/noVNC bridges it to
-# 127.0.0.1:6080. Reach it from the Mac with: ssh -L 6080:localhost:6080 ...
-# Both listeners are loopback-only by design — nothing here may bind a public
-# address, so raw VNC on 5901 is never exposed.
+# Serve the Dome VNC desktop (F07/F14). ONE TigerVNC session on :1, bridged to
+# noVNC by websockify. The bind address depends on DOME_VNC_ACCESS:
+#   public  -> 0.0.0.0:48210   reachable by URL; a VNC password is required, and
+#              the OCI security list + dome-vnc-firewall.service open the port.
+#   tunnel  -> 127.0.0.1:6080  loopback only; reach it with
+#              `ssh -L 6080:localhost:6080 <user>@<host>` then http://localhost:6080
+#   none    -> refuse (no remote desktop configured)
+# No x11vnc, no second mirror: a single controllable session (F14). Runs in the
+# foreground (websockify), so it is driven by dome-vnc.service on the box and
+# blocks when run by hand.
 set -euo pipefail
 
-if ! command -v vncserver >/dev/null 2>&1; then
-    echo "ERROR: vncserver not found. Install the desktop with DOME_DESKTOP=vnc" >&2
-    echo "       (set it in manifest/user.txt and rerun bare-metal-base.sh)." >&2
-    exit 1
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MANIFEST_DIR="${SCRIPT_DIR}/../manifest"
 
-if ! command -v websockify >/dev/null 2>&1; then
-    echo "ERROR: websockify not found. Install the desktop with DOME_DESKTOP=vnc" >&2
-    echo "       (set it in manifest/user.txt and rerun bare-metal-base.sh)." >&2
-    exit 1
-fi
+# Resolve DOME_VNC_ACCESS: env > user.txt > config.txt
+_ACCESS_DEFAULT=$(grep '^DOME_VNC_ACCESS=' "${MANIFEST_DIR}/config.txt" | cut -d= -f2 | tr -d '[:space:]')
+_ACCESS_FILE=$(grep '^[[:space:]]*DOME_VNC_ACCESS=' "${MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
+DOME_VNC_ACCESS="${DOME_VNC_ACCESS:-${_ACCESS_FILE:-${_ACCESS_DEFAULT}}}"
 
+PUBLIC_PORT=48210
+TUNNEL_PORT=6080
 NOVNC_WEB="/usr/share/novnc"
 
-echo "==> Starting TigerVNC on :1 (loopback only)"
-vncserver -kill :1 >/dev/null 2>&1 || true
-vncserver :1 -localhost yes
+case "${DOME_VNC_ACCESS}" in
+    public) BIND="0.0.0.0:${PUBLIC_PORT}" ;;
+    tunnel) BIND="127.0.0.1:${TUNNEL_PORT}" ;;
+    none|"")
+        echo "DOME_VNC_ACCESS=none: no remote desktop configured." >&2
+        echo "Set DOME_VNC_ACCESS=public or =tunnel in manifest/user.txt." >&2
+        exit 1 ;;
+    *)
+        echo "ERROR: DOME_VNC_ACCESS='${DOME_VNC_ACCESS}' invalid (public|tunnel|none)." >&2
+        exit 1 ;;
+esac
 
-echo "==> Starting websockify/noVNC on 127.0.0.1:6080 -> localhost:5901"
-websockify --web="${NOVNC_WEB}" 127.0.0.1:6080 localhost:5901
+for bin in vncserver websockify; do
+    command -v "$bin" >/dev/null 2>&1 || {
+        echo "ERROR: $bin not found. Install the desktop: set DOME_DESKTOP=vnc in" >&2
+        echo "       manifest/user.txt and rerun scripts/bare-metal-base.sh." >&2
+        exit 1; }
+done
+
+# Public mode must be password-protected — never expose a passwordless desktop.
+if [[ "${DOME_VNC_ACCESS}" == "public" && ! -s "${HOME}/.vnc/passwd" ]]; then
+    echo "ERROR: public mode needs a VNC password, but ~/.vnc/passwd is missing." >&2
+    echo "       Run once:  vncpasswd   (then restart dome-vnc.service)." >&2
+    exit 1
+fi
+
+# xfce startup (idempotent)
+mkdir -p "${HOME}/.vnc"
+if [[ ! -x "${HOME}/.vnc/xstartup" ]]; then
+    cat > "${HOME}/.vnc/xstartup" <<'XS'
+#!/bin/sh
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+exec startxfce4
+XS
+    chmod +x "${HOME}/.vnc/xstartup"
+fi
+
+echo "==> DOME_VNC_ACCESS=${DOME_VNC_ACCESS}: TigerVNC :1 (loopback) -> websockify ${BIND}"
+vncserver -kill :1 >/dev/null 2>&1 || true
+vncserver :1 -localhost yes -geometry 1440x900
+
+echo "==> websockify ${BIND} -> localhost:5901 (noVNC web root ${NOVNC_WEB})"
+exec websockify --web="${NOVNC_WEB}" "${BIND}" localhost:5901

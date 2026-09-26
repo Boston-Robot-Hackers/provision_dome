@@ -46,7 +46,7 @@ into `terraform/oci/` so the account is created at first boot.
   `ssh_pwauth: false`.
 - Terraform: `host_user`, `host_password_hash` (sensitive), rendered template as
   the instance's `user_data`.
-- `make ssh` and the vnc targets log in as the host user, not `ubuntu`.
+- `make -C terraform/oci ssh` and the vnc targets log in as the host user, not `ubuntu`.
 - Docs: how to generate the hash, and the new Terraform path.
 
 ## Do not change
@@ -68,7 +68,7 @@ account needs a **fresh instance**. Options: destroy and re-apply
 
 **Steps**:
 1. `terraform apply` a fresh instance.
-2. `make ssh` logs in as your user, by key.
+2. `make -C terraform/oci ssh` logs in as your user, by key.
 3. `sudo whoami` asks for the password, then prints `root`.
 4. `ssh -o PubkeyAuthentication=no <user>@<ip>` is refused.
 5. `id ubuntu` reports no such user.

@@ -1,0 +1,19 @@
+[Unit]
+# Public VNC-access mode only (F14): open the noVNC port 48210 in the box's
+# local firewall. OCI Ubuntu images ship an iptables INPUT policy that admits
+# only SSH, so the OCI security list alone is not enough — the port must also be
+# accepted here. Installed/enabled by scripts/bare-metal-base.sh when
+# DOME_VNC_ACCESS=public; not present in tunnel/none mode.
+Description=Open the Dome public VNC port (48210) in the local firewall
+After=network-online.target
+Wants=network-online.target
+Before=dome-vnc.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c '/usr/sbin/iptables -C INPUT -p tcp --dport 48210 -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I INPUT 5 -p tcp --dport 48210 -j ACCEPT'
+ExecStop=/bin/bash -c '/usr/sbin/iptables -D INPUT -p tcp --dport 48210 -j ACCEPT 2>/dev/null || true'
+
+[Install]
+WantedBy=multi-user.target

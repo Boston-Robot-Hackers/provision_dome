@@ -103,24 +103,26 @@ run_desktop_gate() {
 [[ "$(run_desktop_gate none)" == "skipped" ]] && pass "desktop: none skips apt-desktop" || fail "desktop: none should skip apt-desktop"
 [[ "$(run_desktop_gate bogus)" == "skipped" ]] && pass "desktop: unknown value skips apt-desktop" || fail "desktop: unknown should skip apt-desktop"
 
-# --- TF07.5: start-desktop.sh loopback-only ---
+# --- TF07.5: start-desktop.sh (mode-aware, F14) ---
 echo "--- TF07.5 start-desktop.sh ---"
 DESKTOP_SH="${REPO_DIR}/scripts/start-desktop.sh"
 [[ -f "${DESKTOP_SH}" ]] && pass "start-desktop.sh exists" || fail "start-desktop.sh missing"
 bash -n "${DESKTOP_SH}" && pass "syntax: start-desktop.sh" || fail "syntax: start-desktop.sh"
 grep -q -- '-localhost yes' "${DESKTOP_SH}" \
     && pass "start-desktop.sh passes -localhost yes to VNC" || fail "start-desktop.sh missing -localhost yes"
-grep -q '127.0.0.1:6080' "${DESKTOP_SH}" \
-    && pass "start-desktop.sh binds websockify to 127.0.0.1" || fail "start-desktop.sh not binding websockify to loopback"
-grep -q '0.0.0.0' "${DESKTOP_SH}" \
-    && fail "start-desktop.sh contains 0.0.0.0 (would expose a listener)" \
-    || pass "start-desktop.sh never binds 0.0.0.0"
-# Behavior: with vncserver absent, it must exit non-zero mentioning DOME_DESKTOP.
+grep -q '127.0.0.1' "${DESKTOP_SH}" \
+    && pass "start-desktop.sh binds websockify to loopback in tunnel mode" || fail "start-desktop.sh not binding websockify to loopback"
+# F14: public mode intentionally binds 0.0.0.0:48210, gated by DOME_VNC_ACCESS=public;
+# tunnel mode stays on loopback. Ensure the public bind is the gated one, not blanket.
+grep -q '0.0.0.0:${PUBLIC_PORT}' "${DESKTOP_SH}" \
+    && pass "start-desktop.sh public bind is 0.0.0.0:PUBLIC_PORT, gated by mode (F14)" \
+    || fail "start-desktop.sh public bind missing/ungated"
+# Behavior: in a real mode (tunnel) with vncserver absent, exit non-zero mentioning DOME_DESKTOP.
 if command -v vncserver >/dev/null 2>&1; then
     echo "  SKIP: vncserver present on PATH, skipping missing-package behavior check"
 else
     set +e
-    out=$(bash "${DESKTOP_SH}" 2>&1); rc=$?
+    out=$(DOME_VNC_ACCESS=tunnel bash "${DESKTOP_SH}" 2>&1); rc=$?
     set -e
     [[ "${rc}" -ne 0 ]] && pass "start-desktop.sh exits non-zero when vncserver missing" \
         || fail "start-desktop.sh should exit non-zero when vncserver missing"

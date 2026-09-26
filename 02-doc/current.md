@@ -1,6 +1,6 @@
 # Current Status
 
-**Date:** 2026-09-24
+**Date:** 2026-09-25
 
 Full session-by-session log lives in `02-doc/history.md`. This file holds
 only current status and open items.
@@ -25,23 +25,57 @@ F02, F03, F04, F05 all complete.
   host needs no GitHub key. Verified live on OCI. Feature and task files in
   `done/`.
 
+- **F13** (box-side dev Makefile) — **complete (2026-09-25).** The repo-root
+  `Makefile` is now the on-box dev tool (`build`, `desktop`, `env`, `status`);
+  the laptop OCI control plane (`start`/`stop`/`status`/`ip`/`ssh`/`vnc-*`)
+  moved to `terraform/oci/Makefile`. Suite green (273 total). Files in `done/`.
 
-## ⏭ Next session — pick the next feature
+- **F14** (per-VM VNC access) — **complete (2026-09-25).** One controllable
+  TigerVNC desktop, per box either `public` (URL + VNC password, port 48210
+  open, served on boot) or `tunnel` (loopback + SSH key). Dropped `x11vnc`
+  and the two-mirror design; `DOME_VNC_ACCESS` flag + Terraform `vnc_access`.
+  Perf validated live ("feels ok"). Suite 300 green. Files in `done/`.
 
-F07 and F10 are closed. **F11** (Terraform creates the login account as
-`DOME_USER` with a sudo password, not `ubuntu`) is spec'd with tasks
-TF11.0–TF11.5, **awaiting approval**; it has one open decision (rebuild the
-existing box or add a second). Other candidates:
 
+## ⏭ Pick up here (next session)
+
+**Uncommitted work on `feature/f07-cloud-dev-host`:** F13 and F14 are done,
+tested (full suite **300 green**), and moved to `done/`, but **nothing is
+committed yet.** Likely first action tomorrow: commit F13 + F14 on this branch.
+
+**Closed this session (2026-09-25):**
+
+- **F13** — box vs laptop Makefile split.
+- **F14** — per-VM VNC access (`public` = URL + VNC password on port 48210,
+  served on boot; `tunnel` = loopback + SSH key). Dropped `x11vnc`. Live perf
+  "feels ok."
+
+**Candidates for next:**
+
+- **F11** (Terraform creates the login user as `DOME_USER`, not `ubuntu`) —
+  spec'd, tasks TF11.0–TF11.5, **awaiting approval**; one open decision (rebuild
+  the box vs add a second). **Now also owns** the single-source-of-truth wiring
+  F14 deferred (Terraform writing `DOME_VNC_ACCESS` via cloud-init).
+- **F12** (per-mode repo transport, SSH vs HTTPS) — spec only, open questions.
 - **F06** (macOS Docker dev) — spec'd, needs a task list first.
-- **F08** (remote graph) — five open questions to resolve before tasks.
-- Two small open chores in `04-tasks/chores.md`.
+- **F08** (remote ROS graph) — five open questions before tasks.
+- Open chores in `04-tasks/chores.md` (incl. two logged this session: the
+  `xfce4-terminal` gap — folded into F14 and applied; and reconciling the live
+  box).
 
-**Box:** `dome-cloud-1` at `129.213.124.37` (arm64, 4 OCPU/24 GB). Re-entry:
-`make ssh`, or `ssh -i ~/.ssh/id_oci -o IdentitiesOnly=yes ubuntu@129.213.124.37`.
-Login key note: `~/.ssh/id_oci.pub` is the durable key on the box (the original
-`~/.ssh/id_ed25519` went missing from disk). The `Makefile` wraps
-start/stop/status/ssh.
+**Box:** `dome-cloud-1` at **`129.213.164.184`** (arm64, 4 OCPU/24 GB),
+currently **RUNNING** and back to **SSH-only** (the manual VNC test was torn
+down). Re-entry: `make -C terraform/oci ssh`, or `ssh ubuntu@129.213.164.184`.
+SSH as `ubuntu` works with the default agent/key — the old `~/.ssh/id_oci` note
+is **stale** (`id_oci` isn't on disk and wasn't needed to connect).
+
+**To use F14's public VNC on the live box** (it is *not* yet provisioned for
+it): rerun `sudo scripts/bare-metal-base.sh` (installs the new `dome-vnc*`
+units + desktop apps incl. `xfce4-terminal`, and picks up `tigervnc-tools`),
+set `DOME_VNC_ACCESS=public` in `manifest/user.txt`, run `vncpasswd` once, then
+`make -C terraform/oci vnc-up`. The `terraform/oci/Makefile` wraps
+start/stop/status/ssh/vnc-*; the repo-root `Makefile` holds box-side dev targets
+(`make build`/`desktop`/`env`/`status`).
 
 Decision on record: **stay on OCI A1 Always Free + Terraform** (price is the top
 priority; Terraform removed the console friction). Desk mini PC stays a
@@ -78,6 +112,36 @@ not a cost play. All friction is logged, so a pivot wastes nothing.
   Verified on OCI with a throwaway user: build succeeded, `ros2` works.
 - Not covered: the Docker image itself was not rebuilt (static test only), and
   `oci-howto.md` still shows the GitHub-key step for its manual `vm`-target path.
+
+### Done — F13, box-side dev Makefile
+
+`03-features/done/f13-box-dev-makefile.md`, tasks in
+`04-tasks/done/TF13-box-dev-makefile.md`; tests in
+`tests/test_f13_makefiles.sh` (33 checks, suite green).
+
+The root `Makefile` shipped to the box via the full-repo clone, but its
+targets are laptop-only (need the `oci` CLI and Terraform state) — on the box
+they were inert or wrong. **Split (option A):** root `Makefile` = box dev
+targets; `terraform/oci/Makefile` = the OCI control plane, run with
+`make -C terraform/oci <target>`. Side benefit: the control Makefile now sits
+with the Terraform state it reads, so `make ip` no longer depends on being in
+the repo root. Docs updated (`cloud-howto.md`, `current.md`, F11 spec).
+
+### Done — F14, per-VM VNC access
+
+`03-features/done/f14-public-vnc-access.md`, tasks in
+`04-tasks/done/TF14-public-vnc-access.md`; tests in
+`tests/test_f14_vnc_access.sh` (27 checks). A box picks one desktop mode via
+`DOME_VNC_ACCESS`: **`public`** (single TigerVNC → websockify `0.0.0.0:48210`,
+VNC password, `dome-vnc.service` + `dome-vnc-firewall.service` on boot,
+Terraform `vnc_access=public` opens the one port) or **`tunnel`** (loopback,
+reached over `ssh -L`; key-gated). No `x11vnc`, no second port. `[apt-desktop]`
+gained a terminal (`xfce4-terminal`, `terminator`) + `mousepad`/`firefox`/
+`thunar`/utilities so the desktop is usable on arrival. `make -C terraform/oci
+vnc-up`/`vnc-down` kept as manual overrides.
+
+Single-source-of-truth (Terraform writing the box's `DOME_VNC_ACCESS` via
+cloud-init) is intentionally **deferred to F11**, which owns Terraform↔cloud-init.
 
 ### Housekeeping (2026-09-24)
 

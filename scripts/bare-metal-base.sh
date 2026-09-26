@@ -28,6 +28,9 @@ SWAP_SIZE_MB="${SWAP_SIZE_MB:-${_SWAP_SIZE_MB_FILE:-${_SWAP_SIZE_MB_DEFAULT}}}"
 _DOME_DESKTOP_DEFAULT=$(manifest_config DOME_DESKTOP "${MANIFEST_DIR}/config.txt")
 _DOME_DESKTOP_FILE=$(grep '^[[:space:]]*DOME_DESKTOP=' "${MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
 DOME_DESKTOP="${DOME_DESKTOP:-${_DOME_DESKTOP_FILE:-${_DOME_DESKTOP_DEFAULT}}}"
+_DOME_VNC_ACCESS_DEFAULT=$(manifest_config DOME_VNC_ACCESS "${MANIFEST_DIR}/config.txt")
+_DOME_VNC_ACCESS_FILE=$(grep '^[[:space:]]*DOME_VNC_ACCESS=' "${MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
+DOME_VNC_ACCESS="${DOME_VNC_ACCESS:-${_DOME_VNC_ACCESS_FILE:-${_DOME_VNC_ACCESS_DEFAULT}}}"
 
 echo "==> Starting bare-metal-base.sh"
 echo "==> ROS_DISTRO=${ROS_DISTRO}  UBUNTU_CODENAME=${UBUNTU_CODENAME}  DOME_TARGET=${DOME_TARGET}  SWAP_SIZE_MB=${SWAP_SIZE_MB}"
@@ -103,6 +106,34 @@ fi
 echo "  packages: $(echo "$APT_PKGS" | wc -l) items"
 echo "$APT_PKGS" | xargs apt-get install -y --no-install-recommends
 echo "==> [5/9] apt packages done"
+
+# --- VNC desktop services (F14) ---
+REPO_DIR="$(dirname "${MANIFEST_DIR}")"
+VNC_UNIT_SRC="${REPO_DIR}/host-file-templates/etc/systemd/system/dome-vnc.service"
+VNC_FW_SRC="${REPO_DIR}/host-file-templates/etc/systemd/system/dome-vnc-firewall.service"
+if [[ "${DOME_DESKTOP}" == "vnc" && "${DOME_VNC_ACCESS}" != "none" ]]; then
+    echo "==> Installing dome-vnc.service (DOME_VNC_ACCESS=${DOME_VNC_ACCESS}, User=${DOME_USER})"
+    sed "s/@@DOME_USER@@/${DOME_USER}/g" "${VNC_UNIT_SRC}" > /etc/systemd/system/dome-vnc.service
+    chmod 0644 /etc/systemd/system/dome-vnc.service
+    if [[ "${DOME_VNC_ACCESS}" == "public" ]]; then
+        echo "==> public mode: installing dome-vnc-firewall.service (opens 48210 locally)"
+        install -m 0644 "${VNC_FW_SRC}" /etc/systemd/system/dome-vnc-firewall.service
+    else
+        rm -f /etc/systemd/system/dome-vnc-firewall.service
+    fi
+    systemctl daemon-reload
+    systemctl enable dome-vnc.service
+    if [[ "${DOME_VNC_ACCESS}" == "public" ]]; then
+        systemctl enable dome-vnc-firewall.service
+        echo "==> public mode: set a VNC password once with:  vncpasswd  (then: sudo systemctl restart dome-vnc)"
+    else
+        systemctl disable dome-vnc-firewall.service 2>/dev/null || true
+    fi
+else
+    # Desktop off or access=none: leave no stale VNC units behind.
+    systemctl disable dome-vnc.service dome-vnc-firewall.service 2>/dev/null || true
+    rm -f /etc/systemd/system/dome-vnc.service /etc/systemd/system/dome-vnc-firewall.service
+fi
 
 # --- ROS packages from manifest/packages.txt ---
 echo ""
