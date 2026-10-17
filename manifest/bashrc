@@ -5,7 +5,7 @@ else
     source /opt/ros/${ROS_DISTRO}/setup.bash
 fi
 # Always source the workspace overlay if built; rosutils' bashrc doesn't (it
-# assumed a bru workflow), and rosutils is now cloned even under PUBLIC_ONLY.
+# assumed a bru workflow), and rosutils is in every repo set.
 [[ -f ~/ros2_ws/install/setup.bash ]] && source ~/ros2_ws/install/setup.bash
 
 export LD_LIBRARY_PATH=/usr/local/lib/aarch64-linux-gnu:$LD_LIBRARY_PATH
