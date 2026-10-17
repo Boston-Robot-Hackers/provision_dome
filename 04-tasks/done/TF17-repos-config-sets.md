@@ -210,7 +210,7 @@ Two checks beyond the per-step assertions above:
 
 ## TF17.10 — migrate the live box, log the chore
 
-**Status**: half done — chore logged, **box migration deferred**
+**Status**: done (2026-10-17)
 
 **Description**: `dome-cloud-1`'s `manifest/user.txt` still carries
 `DOME_CLONE_OVERRIDE=PUBLIC_ONLY`, which becomes meaningless — leaving it to
@@ -237,7 +237,7 @@ therefore fixed — **push F17, `git pull` on the box, then rewrite `user.txt`**
 ```
 ssh dome-cloud-1
 cd ~/provision_dome && git pull
-printf 'DOME_USER=pitosalas\nDOME_TARGET=cloud\nDOME_DESKTOP=vnc\nDOME_VNC_ACCESS=public\nREPOS_CONFIG=SAFE\n' > manifest/user.txt
+printf 'DOME_USER=ubuntu\nDOME_TARGET=cloud\nDOME_DESKTOP=vnc\nDOME_VNC_ACCESS=public\nREPOS_CONFIG=SAFE\n' > manifest/user.txt
 sudo scripts/bare-metal-build.sh
 ```
 
@@ -250,3 +250,22 @@ checked against the box, not trusted.
 `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` is a key nothing reads, so `REPOS_CONFIG`
 falls through to the `config.txt` default of `DOME` — the full private set — and
 the build fails on the first `git@` clone.
+
+**Done 2026-10-17.** The box was already on `main` with F17 pulled. Its
+`user.txt` was rewritten whole (old copy kept at `/tmp/user.txt.bak-tf1710` on
+the box), dropping `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` for `REPOS_CONFIG=SAFE`
+and keeping the four `DOME_*` lines it actually carried.
+
+**The command above originally said `DOME_USER=pitosalas`; the box's user is
+`ubuntu`.** Corrected above — the note to check against the box, not trust
+`current.md`, was the right call.
+
+`sudo scripts/bare-metal-build.sh` then ran clean (exit 0):
+
+- `==> REPOS_CONFIG=SAFE (.../manifest/repos-safe.txt, 2 repos, no GitHub SSH key needed)`
+- both `rosutils` and `better_launch` skipped as already present; no `git@` clone attempted
+- `colcon build`: 4 packages finished
+
+Unrelated finding from the same run, logged as a chore: `rosdep install`
+runs without `ROS_DISTRO` and with `-r`, so it fails to resolve every key and
+the build carries on regardless.

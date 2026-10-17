@@ -4,7 +4,7 @@
 
 **Priority**: Medium
 
-**Done:** no — code complete; TF17.10's live-box migration outstanding
+**Done:** yes (2026-10-17)
 
 **Tasks File Created:** yes
 
@@ -221,8 +221,9 @@ compare whitespace-normalized entry lines keyed by dest, excluding comments and
 section headers, and then verified by injecting a real one-character pin
 difference and confirming it fails.
 
-**Not verified live.** *How to Demo* steps 1–3 need root and network on a real
-host. Steps 4–7 were exercised for real against the actual resolver: `DOME`
+**Verified live 2026-10-17** (TF17.10): a `SAFE` build on `dome-cloud-1` resolved
+2 repos with no key needed, attempted no `git@` clone, and exited 0. Earlier,
+before that run: Steps 4–7 were exercised for real against the actual resolver: `DOME`
 reports 29 repos and a needed key, `SAFE` reports 2 and no key, `NONE` reports
 the reserved value, `NONSENSE` exits non-zero naming
 `manifest/repos-nonsense.txt`, a `touch`ed `repos-none.txt` does **not** shadow

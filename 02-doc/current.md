@@ -45,12 +45,10 @@ F02, F03, F04, F05 all complete.
   the summary target below.
 - **F16** (key custody on the Mac) — new, split out of F15. **Spec only, no
   tasks.** Ranks above F15: two unencrypted crown-jewel private keys.
-- **F17** (named repo sets via `REPOS_CONFIG`) — **code complete
-  (2026-09-26), not closed.** TF17.0–TF17.9 done; TF17.10's live-box migration
-  outstanding. `DOME_CLONE_OVERRIDE`, `PRIVATE_REPO`, `manifest_should_clone`
-  and `manifest_validate_clone_override` are **gone**; `manifest/repos.txt` is
-  now `manifest/repos-dome.txt`, with `manifest/repos-safe.txt` alongside it.
-  Suite **395 green**.
+- **F17** (named repo sets via `REPOS_CONFIG`) — **complete (2026-10-17).**
+  TF17.10 done: `dome-cloud-1`'s `user.txt` now says `REPOS_CONFIG=SAFE` and a
+  live build resolved 2 repos, no key, exit 0. Files in `done/`. Suite **395
+  green**.
 
 - **F14** (per-VM VNC access) — **complete (2026-09-25).** One controllable
   TigerVNC desktop, per box either `public` (URL + VNC password, port 48210
