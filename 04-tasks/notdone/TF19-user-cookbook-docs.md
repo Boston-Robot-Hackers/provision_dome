@@ -141,6 +141,12 @@ cookbook against it.
 - Foxglove over an SSH tunnel (`-L 8765:localhost:8765`), no open ports.
 - Desktop: `DOME_DESKTOP=vnc`, then **one** access mode — `tunnel` (loopback +
   `ssh -L 6080`) or `public` (URL, armed from the Mac).
+- **Recommended client: a native TigerVNC viewer** (`brew install --cask
+  tigervnc-viewer`) over `ssh -N -L 5901:localhost:5901`, connecting to
+  `localhost:5901`. Clipboard syncs both ways (unlike noVNC's side panel), no
+  cert warning, works in `public` mode too without opening 48210. Avoid macOS
+  Screen Sharing. Browser/noVNC is the fallback. (Added 2026-10-17, verified
+  live on `dome-cloud-1`.)
 - **The VNC password is silently truncated to 8 characters.**
 - `https`, not `http`, on the public URL; the self-signed cert warning is
   expected; what the encryption buys.

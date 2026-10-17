@@ -254,7 +254,39 @@ printf 'DOME_VNC_ACCESS=tunnel\n' >> manifest/user.txt
 sudo scripts/bare-metal-base.sh          # installs + enables dome-vnc.service
 ```
 
-From your Mac:
+#### Recommended: a native VNC viewer
+
+A native viewer beats the browser. **Copy and paste just work, both ways** —
+no side-panel clipboard box — and there is no certificate warning.
+
+Install the viewer on your Mac, once:
+
+```sh
+brew install --cask tigervnc-viewer
+```
+
+Open the tunnel and leave that terminal open:
+
+```sh
+ssh -N -L 5901:localhost:5901 <DOME_USER>@<public-ip>
+```
+
+Then open **TigerVNC Viewer**, connect to `localhost:5901`, and enter the VNC
+password.
+
+- The desktop is display `:1`, which TigerVNC serves on port `5901`, bound to
+  the box's loopback only — so only the tunnel can reach it.
+- Clipboard sync is built into the server (TigerVNC 1.11 and later); nothing
+  extra runs on the box.
+- **This works in `public` mode too**, against the same desktop session. You
+  do not need `vnc-up` or port 48210 for it, so if this is how you use the
+  desktop, leave 48210 closed.
+- Skip macOS's built-in Screen Sharing: its clipboard is unreliable against
+  non-Apple VNC servers.
+
+#### Fallback: the browser
+
+If you cannot install a viewer:
 
 ```sh
 ssh -L 6080:localhost:6080 <DOME_USER>@<public-ip>
