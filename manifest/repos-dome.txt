@@ -8,7 +8,7 @@
 # change runs as the user everywhere. Moving the pin is a review step: read the
 # diff first.
 [root]
-https://github.com/campusrover/rosutils.git rosutils 1e0fbebea7ced8c63ea1bb60031d06e42a3daedf
+https://github.com/campusrover/rosutils.git rosutils 2febc367e2e39bc6fbc223856447d326e465cc79
 https://github.com/luxonis/depthai-python.git depthai-python
 https://github.com/pitosalas/linorobot2_hardware.git linorobot2_hardware
 git@github.com:Boston-Robot-Hackers/j3.git j3

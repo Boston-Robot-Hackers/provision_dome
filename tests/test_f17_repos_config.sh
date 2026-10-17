@@ -178,7 +178,7 @@ manifest_parse_repo "https://x/a.git a devel"
 [[ "${REPO_BRANCH}" == "devel" && -z "${REPO_COMMIT}" ]] \
     && pass "a non-hex third field is a branch" \
     || fail "three-field line gave branch='${REPO_BRANCH}' commit='${REPO_COMMIT}'"
-pin="1e0fbebea7ced8c63ea1bb60031d06e42a3daedf"
+pin="2febc367e2e39bc6fbc223856447d326e465cc79"
 manifest_parse_repo "https://x/a.git a ${pin}"
 [[ "${REPO_COMMIT}" == "${pin}" && -z "${REPO_BRANCH}" ]] \
     && pass "a 40-hex third field is a commit pin, not a branch" \

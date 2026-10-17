@@ -8,7 +8,7 @@
 # change runs as the user everywhere. The pin must match the one in
 # repos-dome.txt; tests/test_f15_blast_radius.sh asserts they agree.
 [root]
-https://github.com/campusrover/rosutils.git rosutils 1e0fbebea7ced8c63ea1bb60031d06e42a3daedf
+https://github.com/campusrover/rosutils.git rosutils 2febc367e2e39bc6fbc223856447d326e465cc79
 
 # Empty on purpose: SAFE targets hosts with no Pi peripherals.
 [root-pi]

@@ -51,7 +51,7 @@ Each **named repo set** gets its own file, and `REPOS_CONFIG` picks one (F17):
 
 ```
 [root]
-https://github.com/campusrover/rosutils.git rosutils 1e0fbebea7ced8c63ea1bb60031d06e42a3daedf
+https://github.com/campusrover/rosutils.git rosutils 2febc367e2e39bc6fbc223856447d326e465cc79
 
 [ros_ws]
 https://github.com/dfki-ric/better_launch.git better_launch devel
