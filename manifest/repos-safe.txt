@@ -1,0 +1,20 @@
+# SAFE — a minimal ROS 2 dev environment (F17). Two public repos, no GitHub
+# credential needed, and nothing that assumes robot hardware. Selected with
+# REPOS_CONFIG=SAFE; see manifest/config.txt.
+#
+# A 40-hex trailing field pins a repo to that commit (F15.3). rosutils is
+# pinned because manifest/bashrc sources its ros2_robot_bashrc.bash into every
+# interactive shell on every target, the robot included — an unreviewed upstream
+# change runs as the user everywhere. The pin must match the one in
+# repos-dome.txt; tests/test_f15_blast_radius.sh asserts they agree.
+[root]
+https://github.com/campusrover/rosutils.git rosutils 1e0fbebea7ced8c63ea1bb60031d06e42a3daedf
+
+# Empty on purpose: SAFE targets hosts with no Pi peripherals.
+[root-pi]
+
+[ros_ws]
+https://github.com/dfki-ric/better_launch.git better_launch devel
+
+# Empty on purpose: SAFE has no micro-ROS agent, and only ros2_ws is built.
+[uros_ws]

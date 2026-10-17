@@ -121,7 +121,7 @@ Runs as root. Reads from `manifest/` to install:
 - All apt, ROS, and pip packages from `manifest/packages.txt` and
   `manifest/pip.txt`, including Pi-hardware packages: `raspi-config`,
   `i2c-tools`, `RPi.GPIO`, `spidev`
-- Third-party apt repos (Doppler, GitHub CLI, VS Code) from
+- Third-party apt repos (GitHub CLI, VS Code) from
   `manifest/apt-repos.txt`
 - Curl-installed tools (mcfly) from `manifest/tools.txt`
 - Initialises rosdep
@@ -138,7 +138,8 @@ Time varies by target hardware and network speed.
 
 Runs as root. Reads from `manifest/` to:
 - Create home directory structure from `manifest/dirs.txt`
-- Clone all repos from `manifest/repos.txt`, including Pi-hardware repos:
+- Clone the repos in the set `REPOS_CONFIG` selects (`manifest/repos-dome.txt`
+  by default), including Pi-hardware repos:
   `libcamera-apps`, `seeed-linux-dtoverlays`, `mic_hat`
 - Run `rosdep install` with skip-keys from `manifest/rosdep.txt`
 - Run `colcon build` with flags from `manifest/colcon.txt`
@@ -223,7 +224,8 @@ overlay.
 sudo scripts/bare-metal-base.sh    # reinstalls packages (idempotent)
 ```
 
-**Add a repo** — edit `manifest/repos.txt`, then:
+**Add a repo** — edit the set file this host builds (`manifest/repos-dome.txt`
+by default), then:
 
 ```sh
 sudo scripts/bare-metal-build.sh   # clones new repo, rebuilds

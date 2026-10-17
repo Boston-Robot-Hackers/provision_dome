@@ -40,7 +40,8 @@ echo "--- Manifest files exist ---"
 assert_file "${MANIFEST_DIR}/config.txt"
 assert_file "${MANIFEST_DIR}/packages.txt"
 assert_file "${MANIFEST_DIR}/pip.txt"
-assert_file "${MANIFEST_DIR}/repos.txt"
+assert_file "${MANIFEST_DIR}/repos-dome.txt"
+assert_file "${MANIFEST_DIR}/repos-safe.txt"
 assert_file "${MANIFEST_DIR}/apt-repos.txt"
 assert_file "${MANIFEST_DIR}/tools.txt"
 assert_file "${MANIFEST_DIR}/colcon.txt"
@@ -70,7 +71,7 @@ echo "$ros_pkgs" | grep -qx "dome-docker" \
     || pass "packages.txt [ros] has no bogus 'dome-docker' entry"
 
 echo "--- apt-repos.txt sections and fields ---"
-for sect in doppler github-cli vscode; do
+for sect in github-cli vscode; do
     for field in key_url key_file key_dearmor list packages; do
         source "${MANIFEST_DIR}/lib.sh"
         val=$(manifest_field "$sect" "$field" "${MANIFEST_DIR}/apt-repos.txt")
@@ -128,7 +129,6 @@ manifest_require "testsect" "mykey" "$tmpfile" >/dev/null && pass "manifest_requ
 rm -f "$tmpfile"
 
 echo "--- Dockerfile.base no hardcoded apt-repo URLs ---"
-assert_no_hardcode "${REPO_DIR}/Dockerfile.base" "packages\.doppler\.com" "Doppler URL"
 assert_no_hardcode "${REPO_DIR}/Dockerfile.base" "cli\.github\.com/packages/githubcli" "GitHub CLI URL"
 assert_no_hardcode "${REPO_DIR}/Dockerfile.base" "cantino/mcfly" "mcfly URL"
 
@@ -137,13 +137,29 @@ assert_no_hardcode "${REPO_DIR}/Dockerfile" "\-\-symlink-install" "colcon --syml
 assert_no_hardcode "${REPO_DIR}/Dockerfile" "ament_python gazebo_ros_pkgs" "rosdep skip-keys"
 assert_no_hardcode "${REPO_DIR}/Dockerfile" '\.local/bin"' "hardcoded dirs"
 
-echo "--- repos.txt entries parse via clone_section's awk extraction ---"
+echo "--- repo set entries parse via clone_section's awk extraction ---"
+# A section may be legitimately empty (repos-safe.txt leaves [root-pi] and
+# [uros_ws] empty on purpose), so the guard is per-file, not per-section: every
+# declared section must extract cleanly and the file must yield some entries.
+# The original bug this catches is leading whitespace zeroing a whole section.
+for set_file in repos-dome.txt repos-safe.txt; do
+    total=0
+    for sect in root root-pi ros_ws uros_ws; do
+        count=$(awk -v s="$sect" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' \
+            "${MANIFEST_DIR}/${set_file}" | wc -l | tr -d ' ')
+        total=$((total + count))
+    done
+    [[ "$total" -gt 0 ]] \
+        && pass "${set_file} has $total entries extractable by clone_section" \
+        || fail "${set_file} extracted 0 entries -- check for leading whitespace on entry lines"
+done
+# repos-dome.txt is the full robot set: every one of its sections is populated.
 for sect in root root-pi ros_ws uros_ws; do
     count=$(awk -v s="$sect" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' \
-        "${MANIFEST_DIR}/repos.txt" | wc -l | tr -d ' ')
+        "${MANIFEST_DIR}/repos-dome.txt" | wc -l | tr -d ' ')
     [[ "$count" -gt 0 ]] \
-        && pass "repos.txt [$sect] has $count entries extractable by clone_section" \
-        || fail "repos.txt [$sect] extracted 0 entries -- check for leading whitespace on entry lines"
+        && pass "repos-dome.txt [$sect] has $count entries extractable by clone_section" \
+        || fail "repos-dome.txt [$sect] extracted 0 entries -- check for leading whitespace"
 done
 
 echo "--- clone_section skips already-cloned repos ---"

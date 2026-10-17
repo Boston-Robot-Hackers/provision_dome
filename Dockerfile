@@ -9,6 +9,8 @@ ARG ROS_DISTRO=kilted
 ENV ROS_DISTRO=${ROS_DISTRO}
 ARG DOME_USER=robot
 ARG DOME_PASSWORD=""
+# Which named repo set the image clones (F17); see manifest/config.txt.
+ARG REPOS_CONFIG=DOME
 ENV DOME_HOME=/home/${DOME_USER}
 
 COPY manifest/ /manifest/
@@ -29,9 +31,11 @@ RUN mkdir -p -m 0700 /root/.ssh && ssh-keyscan github.com >> /root/.ssh/known_ho
 RUN --mount=type=ssh \
     set -euo pipefail; \
     source /manifest/lib.sh; \
+    REPOS_FILE=$(manifest_repos_file "${REPOS_CONFIG}" /manifest); \
     clone_section() { \
       local section="$1"; \
       local base_dir="$2"; \
+      local repos_file="$3"; \
       mkdir -p "${base_dir}"; \
       while read -r line; do \
         [[ -z "${line}" ]] && continue; \
@@ -42,12 +46,17 @@ RUN --mount=type=ssh \
         else \
           git clone "${REPO_URL}" "${base_dir}/${REPO_DEST}" || { echo "ERROR: failed to clone ${REPO_URL}"; exit 1; }; \
         fi; \
-      done < <(awk -v s="${section}" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' /manifest/repos.txt); \
+        if [[ -n "${REPO_COMMIT}" ]]; then \
+          git -C "${base_dir}/${REPO_DEST}" checkout --detach "${REPO_COMMIT}" || { echo "ERROR: failed to check out ${REPO_COMMIT} in ${REPO_DEST}"; exit 1; }; \
+        fi; \
+      done < <(awk -v s="${section}" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' "${repos_file}"); \
     }; \
-    clone_section root "${DOME_HOME}"; \
-    clone_section root-pi "${DOME_HOME}"; \
-    clone_section ros_ws "${DOME_HOME}/ros2_ws/src"; \
-    clone_section uros_ws "${DOME_HOME}/uros_ws/src"; \
+    if [[ -n "${REPOS_FILE}" ]]; then \
+      clone_section root "${DOME_HOME}" "${REPOS_FILE}"; \
+      clone_section root-pi "${DOME_HOME}" "${REPOS_FILE}"; \
+      clone_section ros_ws "${DOME_HOME}/ros2_ws/src" "${REPOS_FILE}"; \
+      clone_section uros_ws "${DOME_HOME}/uros_ws/src" "${REPOS_FILE}"; \
+    fi; \
     chown -R "${DOME_USER}:${DOME_USER}" "${DOME_HOME}"
 
 USER root

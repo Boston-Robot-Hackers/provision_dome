@@ -71,8 +71,8 @@ editing a script rather than a manifest file, the abstraction is broken.
 | `config.txt` | ROS_DISTRO, UBUNTU_CODENAME, DOME_USER default |
 | `packages.txt` | apt and ROS packages ([apt]/[ros] sections) |
 | `pip.txt` | pip3 packages |
-| `repos.txt` | git repos to clone ([root]/[ros_ws]/[uros_ws] sections) |
-| `apt-repos.txt` | third-party apt repositories (Doppler, GitHub CLI, VS Code) |
+| `repos-<set>.txt` | git repos to clone, one file per `REPOS_CONFIG` set ([root]/[ros_ws]/[uros_ws] sections) |
+| `apt-repos.txt` | third-party apt repositories (GitHub CLI, VS Code) |
 | `tools.txt` | curl-installed tools (mcfly) |
 | `colcon.txt` | colcon build flags and skip list |
 | `rosdep.txt` | rosdep install skip keys |

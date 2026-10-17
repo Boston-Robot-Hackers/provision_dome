@@ -87,7 +87,9 @@ packages) or `manifest/pip.txt` (Python packages), then:
 sudo scripts/bare-metal-base.sh
 ```
 
-**Add a robot repository** — add it to `manifest/repos.txt`, then:
+**Add a robot repository** — add it to the repo set this host builds
+(`manifest/repos-dome.txt` for the full robot set; see `REPOS_CONFIG` in
+`manifest/config.txt`), then:
 
 ```sh
 sudo scripts/bare-metal-build.sh

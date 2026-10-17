@@ -41,6 +41,12 @@ export DOME_USER="${DOME_USER:-${_DOME_USER:-${_DOME_USER_DEFAULT}}}"
 # metadata or build logs. Do not commit real passwords.
 export DOME_PASSWORD="${DOME_PASSWORD:-}"
 
+# Which named repo set a Docker build clones (F17). Same precedence the
+# bare-metal scripts use: environment > manifest/user.txt > manifest/config.txt.
+_REPOS_CONFIG_DEFAULT=$(_require_field "${_MANIFEST_DIR}/config.txt" REPOS_CONFIG) || return 1
+_REPOS_CONFIG=$(grep '^[[:space:]]*REPOS_CONFIG=' "${_MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+export REPOS_CONFIG="${REPOS_CONFIG:-${_REPOS_CONFIG:-${_REPOS_CONFIG_DEFAULT}}}"
+
 # Docker Hub image names with ROS distro tags from manifest/config.txt.
 # Set DOCKERHUB_USERNAME in manifest/user.txt.
 export DOME_BASE_IMAGE="${DOME_BASE_IMAGE:-docker.io/${_DOCKERHUB_USERNAME}/dome-base:${_ROS_DISTRO}}"

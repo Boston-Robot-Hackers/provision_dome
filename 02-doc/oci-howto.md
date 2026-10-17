@@ -162,28 +162,29 @@ Clone into `ubuntu`'s home — `manifest/bashrc` expects the repo at
 cd ~
 git clone https://github.com/Boston-Robot-Hackers/provision_dome.git
 cd provision_dome
-printf 'DOME_USER=ubuntu\nDOME_TARGET=vm\nDOME_CLONE_OVERRIDE=PUBLIC_ONLY\n' > manifest/user.txt
+printf 'DOME_USER=ubuntu\nDOME_TARGET=vm\nREPOS_CONFIG=SAFE\n' > manifest/user.txt
 
 sudo scripts/host-setup.sh        # finds 'ubuntu' already exists, skips user creation
 sudo scripts/bare-metal-base.sh
 sudo scripts/bare-metal-build.sh
 ```
 
-**No GitHub key, no private repos.** `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` tells
-`bare-metal-build.sh` to skip every repo marked `PRIVATE_REPO` in
-`manifest/repos.txt`, so the build needs no GitHub credential and this
+**No GitHub key, no private repos.** `REPOS_CONFIG=SAFE` tells
+`bare-metal-build.sh` to clone the set in `manifest/repos-safe.txt`, which holds
+only public HTTPS repos, so the build needs no GitHub credential and this
 internet-facing box never holds one. The only key on the instance is the
 **public** login key Terraform installed; your private key stays on your Mac.
 
-**What this excludes.** The dome robot packages are all private (`dome`,
-`dome2`, `dome_control`, `dome_nav`, `dome_vision`, …), so a `PUBLIC_ONLY` box
-gets a working ROS 2 environment with only the public dependencies — none of
-the dome code itself.
+**What this excludes.** `SAFE` is `rosutils` + `better_launch` and nothing
+else: no `dome*` packages, no `linorobot*`, no `micro_ros*`, no hardware
+drivers. You get a working ROS 2 environment with the shell tooling, and add
+what a given experiment needs.
 
 **If you later want the private repos here anyway:** generate a *throwaway* key
 on the VM (`ssh-keygen -t ed25519 -C oci-dome -f ~/.ssh/id_ed25519`), add its
-public half at GitHub → SSH keys, drop the `DOME_CLONE_OVERRIDE` line from
-`manifest/user.txt`, re-run `sudo scripts/bare-metal-build.sh`, and delete the
+public half at GitHub → SSH keys, change `REPOS_CONFIG=SAFE` to
+`REPOS_CONFIG=DOME` in `manifest/user.txt`, re-run
+`sudo scripts/bare-metal-build.sh`, and delete the
 `oci-dome` key from GitHub at teardown. Never copy your personal key to this
 box.
 
