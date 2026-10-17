@@ -1,6 +1,6 @@
 # Current Status
 
-**Date:** 2026-09-25
+**Date:** 2026-09-26
 
 Full session-by-session log lives in `02-doc/history.md`. This file holds
 only current status and open items.
@@ -38,10 +38,19 @@ F02, F03, F04, F05 all complete.
   deferred (F15.6, child compartment) and one half deferred (the Terraform key
   wiring) — both to the F11 rebuild, both recorded in the feature file. Files in
   `done/`.
+- **F19** (a user cookbook to replace the guide set) — new, **in progress.**
+  TF19.0–TF19.3 done; TF19.4–TF19.10 not started. Replaces `howto.md` and the
+  four `*-howto.md` guides with a concepts chapter plus one recipe per mode;
+  retires `oci-howto.md` to `archive/`. Numbered F19 because F18 is reserved for
+  the summary target below.
 - **F16** (key custody on the Mac) — new, split out of F15. **Spec only, no
   tasks.** Ranks above F15: two unencrypted crown-jewel private keys.
-- **F17** (named repo sets via `REPOS_CONFIG`) — new. Spec **and** tasks
-  written (TF17.0–TF17.10); no step started. Replaces `DOME_CLONE_OVERRIDE`.
+- **F17** (named repo sets via `REPOS_CONFIG`) — **code complete
+  (2026-09-26), not closed.** TF17.0–TF17.9 done; TF17.10's live-box migration
+  outstanding. `DOME_CLONE_OVERRIDE`, `PRIVATE_REPO`, `manifest_should_clone`
+  and `manifest_validate_clone_override` are **gone**; `manifest/repos.txt` is
+  now `manifest/repos-dome.txt`, with `manifest/repos-safe.txt` alongside it.
+  Suite **395 green**.
 
 - **F14** (per-VM VNC access) — **complete (2026-09-25).** One controllable
   TigerVNC desktop, per box either `public` (URL + VNC password, port 48210
@@ -52,29 +61,91 @@ F02, F03, F04, F05 all complete.
 
 ## ⏭ Pick up here (next session)
 
-**F15 is closed and committed** on branch **`f15-blast-radius`** (`0e47af5`,
-`4c30c28`, plus the closeout commit). Suite **368 green, 0 failed**. The branch
-is pushed and tracking. **Not merged to `main`.**
+Branch **`f15-blast-radius`**, suite **395 green, 0 failed**. F15's work is
+committed (`0e47af5`, `4c30c28`, `9a621d5`); **nothing since then is committed.**
+Branch **not merged to `main`.**
 
-Nothing is in progress. The user's decision (2026-09-26): **F17 next**, because
-inspecting the box showed the repo problem it solves is real — see below.
+### ⚠ First thing next session: commit
 
-**Why F17 moved up.** Under `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` the box has
-**none** of the `dome*` code — all 15 private repos are skipped — but it does
-have the 8 incidental public ones: `depthai-python`, `linorobot2_hardware`,
-`ldlidar_stl_ros2`, `micro-ROS-Agent` and `micro_ros_msgs` (the last two cloned
-**twice**, into both `ros2_ws/src` and `uros_ws/src`). So the cloud box is a ROS
-workspace full of a robot's dependencies with the robot missing. F17's `SAFE`
-set — a deliberate `rosutils` + `better_launch` — is exactly the fix, and its
-tasks TF17.0–TF17.10 are already written.
+The working tree holds **two features' worth of uncommitted work** — F17
+complete, F19 partly done. They should be **two separate commits**, F17 first,
+because F19 goes on to delete files F17 edited.
 
-**Ordering note carried over from F15:** F15 landed first, so **TF17.5/TF17.6
-must preserve the commit-pin field** while stripping `PRIVATE_REPO`. A 40-hex
-third field is now a commit pin, not a branch — see `manifest_parse_repo`.
+**This is the one ordering hazard that can lose work.** TF19.8 removes
+`cloud-howto.md`, `pi-howto.md`, `vm-howto.md`, `docker-howto.md` and
+`howto.md`. F17 edited four of those five. Deleting them while F17's edits are
+uncommitted erases those edits from history entirely — not recoverable from
+git. **Commit F17 before starting TF19.8.**
+
+Suggested split:
+
+```
+git add manifest scripts Dockerfile compose tests README.md 02-doc/manifest-format.md 02-doc/spec.md 02-doc/notes.md 02-doc/oci-howto.md 02-doc/pi-howto.md 02-doc/vm-howto.md 02-doc/cloud-howto.md host-file-templates
+git commit    # F17
+git add 02-doc/cookbook-concepts.md 03-features 04-tasks 02-doc/current.md
+git commit    # F19 in progress
+```
+
+Check `git status` first — that list was written from memory of the session,
+not generated.
+
+### F17 is code complete and needs one live step
+
+TF17.0–TF17.9 are done and the feature file carries the full implementation
+notes. What changed, in one place:
+
+- `REPOS_CONFIG` picks a **named set**, each its own file:
+  `manifest/repos-dome.txt` (the old `repos.txt`, unchanged content, markers
+  stripped, 29 entries) and `manifest/repos-safe.txt` (`rosutils` +
+  `better_launch`, both HTTPS). `NONE` is reserved and maps to no file.
+- **Deleted:** `DOME_CLONE_OVERRIDE`, the `PRIVATE_REPO` marker on all 17
+  lines, `manifest_should_clone`, `manifest_validate_clone_override`,
+  `REPO_IS_PRIVATE`, and `tests/test_f10_repo_cloning.sh`.
+- **Added:** `manifest_repos_file` in `lib.sh`, a resolve-time report naming
+  the set / file / repo count / whether a key is needed (that last **derived**
+  from the urls, not declared), and `tests/test_f17_repos_config.sh` (71
+  checks, including a cross-set **drift guard**).
+- The `Dockerfile` now honors the set too, which it never did for
+  `DOME_CLONE_OVERRIDE` — see the new chore.
+
+**⚠ The one remaining step, and it is order-sensitive.** `dome-cloud-1`'s
+`manifest/user.txt` still says `DOME_CLONE_OVERRIDE=PUBLIC_ONLY`, which nothing
+reads any more — so `REPOS_CONFIG` falls through to the `DOME` default and **the
+next build on that box will try the full private set and fail on the first
+`git@` clone.** Do **not** fix `user.txt` first: the code currently on the box
+still reads `DOME_CLONE_OVERRIDE`, so removing that line makes it clone
+everything. Correct order — **commit and push, `git pull` on the box, then
+rewrite `user.txt`** (rewrite, don't append: the box already hit the
+duplicate-key concatenation bug). Full sequence in TF17.10.
+
+**Not verified live.** Demo steps 1–3 need root and network on a real host.
+Steps 4–7 were exercised for real against the resolver and all behave as
+specified.
+
+**One F17 defect found later, while inventorying docs for F19 — now fixed.**
+TF17.8's doc check grepped for `DOME_CLONE_OVERRIDE` and `PRIVATE_REPO` but
+**not for the value `PUBLIC_ONLY`**, so three prose mentions survived in
+`cloud-howto.md`, one of them by then **factually wrong**: it said `rosutils` is
+private and therefore absent on such a host. `rosutils` is public HTTPS and **is
+in `SAFE`**. Fixed, and `tests/test_f17_repos_config.sh` now greps for
+`PUBLIC_ONLY` too. Worth remembering as a pattern: grepping for a flag's *name*
+misses prose about its *values*.
+
+**Two specs now name a mechanism that no longer exists** — left alone
+deliberately, since editing another feature's spec is outside F17's scope:
+
+- **F12** (per-mode repo transport) is driven entirely by
+  `DOME_CLONE_OVERRIDE`. Its motivation survives, but much of its design is now
+  **moot by construction**: separate set files can already carry different urls
+  for the same repo, so `repos-safe.txt` could list an HTTPS `rosutils` while
+  `repos-dome.txt` lists an SSH one, with no new syntax. What survives is the
+  drift question. **Reread F12's premise before writing its tasks.**
+- **F11**'s *Do not change* list still names `DOME_CLONE_OVERRIDE`; it should
+  read `REPOS_CONFIG`.
 
 **Also queued, from the user's notes (2026-09-26), neither spec'd yet:**
 
-- **A summary target** (proposed F18): one Mac-side command reporting live
+- **A summary target** (proposed F18, number still reserved): one Mac-side command reporting live
   state — IP, lifecycle, armed/disarmed, actual OCI ingress rules, effective
   `DOME_*` config from the box, key in use, audit result. Motivated by real
   confusion this session (private `10.0.1.235` vs the public IP, `http` vs
@@ -87,14 +158,67 @@ third field is now a commit pin, not a branch — see `manifest_parse_repo`.
   files to leave as record. Hazard: moving `bashrc` changes what
   `bare-metal-build.sh` installs, and a stale `~/.bashrc` already caused one
   live failure during the repo rename (see `chores.md`).
-- **`micro-ROS-Agent`/`micro_ros_msgs` listed twice** in `repos.txt` — decide
-  whether the duplication is deliberate.
+- **`micro-ROS-Agent`/`micro_ros_msgs` listed twice** in
+  `manifest/repos-dome.txt` — still undecided. F17 deliberately preserved the
+  duplication rather than settling it, and now **pins** the pair as the file's
+  only intra-file duplicates, so a third accidental one fails a test. Note
+  `clone_section uros_ws` runs unconditionally while only `ros2_ws` is
+  colcon-built, so the `[uros_ws]` copies cost a clone and nothing else.
 
-**Open chores:** six in `04-tasks/chores.md`, including the new one to uninstall
-the Doppler CLI from hosts provisioned before F15 — **the robot is the one that
-matters**, since it won't be rebuilt.
+**Open chores:** **nine** in `04-tasks/chores.md` — the Doppler CLI uninstall from
+hosts provisioned before F15 (**the robot is the one that matters**, since it
+won't be rebuilt), plus the new undecided `micro-ROS` duplication. F17 also
+logged one **closed** chore recording that the `Dockerfile` silently ignored
+`DOME_CLONE_OVERRIDE` for F10's entire life.
 
-**Candidates after F17:**
+### F19 — user cookbook, in progress
+
+**The ask, verbatim in spirit:** documentation that is *far more user friendly*,
+mentions **no history and no features**, explains the concepts and terminology
+first, then gives steps for each of the four major modes.
+
+**Four decisions the user made 2026-09-26, all recorded in the feature file:**
+**five files** (concepts + one per mode); the **README becomes a short front
+door**; **no behavior fixes** inside this feature; and the **container recipe is
+marked "not recently exercised"**, present tense, because `notes.md` calls that
+image the least debugged part of the project.
+
+**Done so far:**
+
+- **TF19.0** — decisions above.
+- **TF19.1** — a full inventory of what the seven current guides contain,
+  written into the task file as a **must-survive checklist** grouped by recipe,
+  plus a *retire* list and three defects found along the way. TF19.9 verifies
+  the finished cookbook against this checklist. **This is the thing that stops
+  the rewrite from silently dropping a hard-won detail — read it before
+  writing any recipe.**
+- **TF19.2 + TF19.3** — `02-doc/cookbook-concepts.md` (298 lines). Concepts and
+  vocabulary in one file, since splitting them meant a reader meeting a term
+  before its definition.
+
+**Next, in this order:** TF19.4 Pi recipe, TF19.5 VM, TF19.6 container,
+TF19.7 cloud, TF19.8 retire the old guides (**commit F17 first**), TF19.9 read
+it as a newcomer, TF19.10 write `tests/test_f19_cookbook.sh`.
+
+**The rule the recipes are held to:** a recipe may not re-explain a concept.
+TF19.10 enforces it mechanically — every `DOME_*`/`REPOS_CONFIG` token used in
+any recipe must be defined in the concepts chapter. Write concepts-first or
+expect rework.
+
+**Three defects the inventory turned up**, all logged as chores and
+**deliberately not fixed** inside F19, which is scoped to documentation:
+
+1. `oci-howto.md:165` writes `DOME_TARGET=vm` for an OCI box — that **skips the
+   swapfile** a small cloud shape needs, the exact OOM `SWAP_SIZE_MB` exists to
+   prevent. `cloud-howto.md` correctly uses `cloud`. May resolve by deletion.
+2. `howto.md` has a post-flash step (copy `config.txt`/`cmdline.txt` to
+   `/Volumes/system-boot`) that `pi-howto.md` **omits entirely**, so following
+   the Pi guide alone never applies those boot files.
+3. `docker-howto.md` Steps 3–4 delegate to `howto.md`, so the README's "each
+   guide is self-contained, you never need to jump between them" is already
+   false for that path.
+
+**Candidates after F17 and F19 close:**
 
 - **F16** (key custody on the Mac) — spec only, **no tasks**. Ranks high: both
   crown-jewel private keys unencrypted on disk, and `~/.oci/oci_api_key.pem` is
@@ -162,8 +286,12 @@ F13/F14/F15) and the template writes neither `DOME_DESKTOP` nor
 `DOME_VNC_ACCESS`. Rebuilding becomes sane only once F11 teaches cloud-init the
 branch and those vars — and a destroy also risks not getting A1 capacity back.
 
-**What the box does *not* have: any `dome*` code.** `PUBLIC_ONLY` skips all 15
-private repos, so `ros2_ws/src` holds only public dependencies. F17 is the fix.
+**What the box does *not* have: any `dome*` code.** The old `PUBLIC_ONLY` run
+skipped all 15 private repos, so `ros2_ws/src` holds only public dependencies —
+including the 8 incidental ones F17's `SAFE` set drops (`depthai-python`,
+`linorobot2_hardware`, `ldlidar_stl_ros2`, and `micro-ROS-Agent`/`micro_ros_msgs`
+cloned twice). Those stay on disk until removed by hand; `SAFE` changes what a
+*future* build clones, not what is already there.
 
 The `terraform/oci/Makefile` wraps start/stop/status/ssh/audit/vnc-*; the
 repo-root `Makefile` holds box-side dev targets
