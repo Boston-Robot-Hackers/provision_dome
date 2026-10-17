@@ -4,13 +4,13 @@
 
 **Priority**: Medium
 
-**Done:** no
+**Done:** no — code complete; TF17.10's live-box migration outstanding
 
 **Tasks File Created:** yes
 
-**Tests Written:** no
+**Tests Written:** yes
 
-**Test Passing:** no
+**Test Passing:** yes — `tests/test_f17_repos_config.sh`, 71 checks; suite 395 green
 
 **Description**: Replace the `DOME_CLONE_OVERRIDE` filter with a **named repo
 set**. A single global, `REPOS_CONFIG`, holds a word — `SAFE`, `DOME`,
@@ -177,6 +177,66 @@ plain-file simplicity that motivated the design.
 
 ---
 
+## Implementation notes (2026-09-26)
+
+TF17.0–TF17.9 are done. Suite: **395 passed, 0 failed**, of which
+`tests/test_f17_repos_config.sh` is **71 checks**;
+`tests/test_f10_repo_cloning.sh` (47 checks) was deleted as specified.
+
+**Four things went differently than specified, all recorded rather than
+silently absorbed:**
+
+- **SAFE's `rosutils` carries F15's commit pin.** The spec above lists the
+  entry unpinned, but F15 landed first and
+  `tests/test_f15_blast_radius.sh` asserts every `rosutils` entry under
+  `manifest/repos*.txt` is pinned *and that all pins agree*. An unpinned SAFE
+  entry would have failed F15, and would also have handed the credential-free
+  cloud box an unpinned copy of the one repo that runs code in every shell —
+  exactly what F15.3 exists to prevent. Both files carry
+  `1e0fbebea7ced8c63ea1bb60031d06e42a3daedf`.
+
+- **`config.txt`'s `REPOS_CONFIG=DOME` default moved from TF17.7 to TF17.3.**
+  TF17.3 makes the build script call `manifest_config REPOS_CONFIG`, which
+  errors if the key is absent, so splitting them would have left the tree
+  broken between the two steps — against the task list's own rule that every
+  step leaves the tree working.
+
+- **`REPOS_CONFIG` is wired through `compose/compose.yaml` and
+  `scripts/dome-config.sh`**, beyond TF17.4's literal scope. `ARG
+  REPOS_CONFIG=DOME` alone is unreachable: nothing passes a build arg, so a
+  Scenario 3 build could never select a set and TF17.4's stated goal — making
+  the two clone paths agree — would only half hold.
+
+- **TF17.6's parser test in `test_f15_blast_radius.sh` was rewritten.** Its
+  "marker and commit coexist in either order" check asserted on
+  `REPO_IS_PRIVATE`, which this feature deletes. Replaced with the property F15
+  actually needs: a pin on an SSH entry parses as a commit and never as a
+  branch.
+
+**The drift guard earned its place immediately.** Its first run reported
+`rosutils` drifting between the two sets. That was a false positive in the
+check, not the data — the grep was also matching a *comment* line containing
+the word "rosutils", and the comment text differs between files. Rewritten to
+compare whitespace-normalized entry lines keyed by dest, excluding comments and
+section headers, and then verified by injecting a real one-character pin
+difference and confirming it fails.
+
+**Not verified live.** *How to Demo* steps 1–3 need root and network on a real
+host. Steps 4–7 were exercised for real against the actual resolver: `DOME`
+reports 29 repos and a needed key, `SAFE` reports 2 and no key, `NONE` reports
+the reserved value, `NONSENSE` exits non-zero naming
+`manifest/repos-nonsense.txt`, a `touch`ed `repos-none.txt` does **not** shadow
+the reserved word, and `grep` finds no `DOME_CLONE_OVERRIDE`/`PRIVATE_REPO`
+under `scripts/`, `manifest/` or either Dockerfile.
+
+**Left alone deliberately.** `03-features/notdone/f12-per-mode-repo-transport.md`
+still describes `DOME_CLONE_OVERRIDE` as its selection driver, and F11's *Do not
+change* list still names it. Editing another feature's spec is outside F17's
+scope and `.claude/process.md` wants permission before switching features, so
+the mismatch is documented in `02-doc/current.md` instead. F12's premise needs
+rereading before its tasks are written: separate set files can already carry
+different urls for the same repo, which makes much of F12 moot by construction.
+
 ## Open decisions
 
 **Resolved 2026-09-26:** the global is `REPOS_CONFIG` (no `DOME_` prefix), and
@@ -196,10 +256,13 @@ Still open:
    repos. Assumed correct — `DOME_TARGET` and `REPOS_CONFIG` stay
    independent — but it means two flags can disagree sensibly and should be
    confirmed.
-3. **Migrate the live box.** `dome-cloud-1` has `DOME_CLONE_OVERRIDE=PUBLIC_ONLY`
-   in its `manifest/user.txt`, which stops meaning anything. It needs
-   `REPOS_CONFIG=SAFE`, or it falls back to the `DOME` default and starts
-   demanding a GitHub key.
+3. **Migrate the live box — still outstanding, and order-sensitive.**
+   `dome-cloud-1` has `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` in its
+   `manifest/user.txt`, which now means nothing, so `REPOS_CONFIG` falls through
+   to the `DOME` default and the next build on that box demands a GitHub key it
+   does not have. It needs `REPOS_CONFIG=SAFE` — but **only after the box pulls
+   this code**, since migrating first leaves the old code cloning everything.
+   Full sequence in TF17.10.
 
 ## How to Demo
 

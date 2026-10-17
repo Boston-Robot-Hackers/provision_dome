@@ -79,10 +79,13 @@ manifest_parse_repo "https://example.com/a.git dest"
 [[ -z "${REPO_COMMIT}" && -z "${REPO_BRANCH}" ]] \
     && pass "two-field line sets neither" \
     || fail "two-field line: commit='${REPO_COMMIT}' branch='${REPO_BRANCH}'"
-manifest_parse_repo "git@example.com:a.git dest PRIVATE_REPO 2222222222222222222222222222222222222222"
-[[ "${REPO_IS_PRIVATE}" == "true" && -n "${REPO_COMMIT}" ]] \
-    && pass "marker and commit coexist in either order" \
-    || fail "marker+commit: private='${REPO_IS_PRIVATE}' commit='${REPO_COMMIT}'"
+# F17 removed the PRIVATE_REPO marker, so the pin is now the only trailing
+# field. What F15 still needs is that a pin on an SSH entry parses as a commit
+# and never as a branch, which would silently clone the default branch instead.
+manifest_parse_repo "git@example.com:a.git dest 2222222222222222222222222222222222222222"
+[[ "${REPO_COMMIT}" == "2222222222222222222222222222222222222222" && -z "${REPO_BRANCH}" ]] \
+    && pass "a pin on an ssh entry parses as a commit, not a branch" \
+    || fail "ssh pin: commit='${REPO_COMMIT}' branch='${REPO_BRANCH}'"
 check "grep -q 'checkout --detach' '${BUILD}'" "bare-metal-build.sh checks out a pinned commit"
 check "grep -q 'checkout --detach' '${DOCKERFILE}'" "Dockerfile mirrors the pinned checkout"
 

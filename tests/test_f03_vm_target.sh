@@ -43,15 +43,15 @@ section_has pip-pi spidev "${MANIFEST_DIR}/pip.txt" \
 section_has pip PyAudio "${MANIFEST_DIR}/pip.txt" \
     && pass "[pip] still contains PyAudio" || fail "[pip] missing PyAudio"
 
-echo "--- repos.txt root/root-pi split ---"
+echo "--- repos-dome.txt root/root-pi split ---"
 for repo in seeed-linux-dtoverlays libcamera-apps mic_hat; do
-    section_has root "$repo" "${MANIFEST_DIR}/repos.txt" \
+    section_has root "$repo" "${MANIFEST_DIR}/repos-dome.txt" \
         && fail "[root] still contains $repo" || pass "[root] no longer contains $repo"
-    section_has root-pi "$repo" "${MANIFEST_DIR}/repos.txt" \
+    section_has root-pi "$repo" "${MANIFEST_DIR}/repos-dome.txt" \
         && pass "[root-pi] contains $repo" || fail "[root-pi] missing $repo"
 done
 for repo in rosutils depthai-python linorobot2_hardware; do
-    section_has root "$repo" "${MANIFEST_DIR}/repos.txt" \
+    section_has root "$repo" "${MANIFEST_DIR}/repos-dome.txt" \
         && pass "[root] still contains $repo" || fail "[root] missing $repo"
 done
 

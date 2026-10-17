@@ -138,9 +138,9 @@ Time varies by VM resources and network speed.
 
 Runs as root. Reads from `manifest/` to:
 - Create home directory structure from `manifest/dirs.txt`
-- Clone all repos from `manifest/repos.txt` (Pi-only repos
-  `libcamera-apps`, `seeed-linux-dtoverlays`, `mic_hat` are skipped because
-  `DOME_TARGET=vm`)
+- Clone the repos in the set `REPOS_CONFIG` selects (`manifest/repos-dome.txt`
+  by default). Pi-only repos `libcamera-apps`, `seeed-linux-dtoverlays`,
+  `mic_hat` are skipped because `DOME_TARGET=vm`
 - Run `rosdep install` with skip-keys from `manifest/rosdep.txt`
 - Run `colcon build` with flags from `manifest/colcon.txt`
 - Install `manifest/bashrc` as `~/.bashrc`, and the `bru` symlink. This is
@@ -230,7 +230,8 @@ overlay.
 sudo scripts/bare-metal-base.sh    # reinstalls packages (idempotent)
 ```
 
-**Add a repo** — edit `manifest/repos.txt`, then:
+**Add a repo** — edit the set file this host builds (`manifest/repos-dome.txt`
+by default), then:
 
 ```sh
 sudo scripts/bare-metal-build.sh   # clones new repo, rebuilds

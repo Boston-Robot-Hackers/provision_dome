@@ -63,9 +63,9 @@ placeholders:
   `~/.ssh/id_ed25519.pub`.
 
 The template writes `manifest/user.txt` with `DOME_USER`,
-**`DOME_TARGET=cloud`** and **`DOME_CLONE_OVERRIDE=PUBLIC_ONLY`**, so first
-boot takes the non-Pi path, enables swap, and will clone **public repos
-only**. It does **not** run `bare-metal-build.sh` and contains **no
+**`DOME_TARGET=cloud`** and **`REPOS_CONFIG=SAFE`**, so first boot takes the
+non-Pi path, enables swap, and will clone only the **SAFE** set — `rosutils`
+and `better_launch`, both over HTTPS. It does **not** run `bare-metal-build.sh` and contains **no
 credential** — the build is run by hand in Step 4, and needs no GitHub key.
 
 ---
@@ -117,8 +117,10 @@ same flags apply to the tunnel commands below.
 ## Step 4: Build
 
 This host is on the public internet, so by default it holds **no GitHub key**
-and never clones your private repos: `DOME_CLONE_OVERRIDE=PUBLIC_ONLY` makes
-the build skip every repo marked `PRIVATE_REPO`. Build the workspace:
+and never clones your private repos: `REPOS_CONFIG=SAFE` selects a set that
+contains only two public HTTPS repos, so there is nothing for a credential to
+unlock. The build prints the set, its file, its repo count and whether a key is
+needed before it clones anything. Build the workspace:
 
 ```sh
 cd ~/provision_dome
@@ -163,8 +165,8 @@ stops being true the moment you log into something. So:
 ### Optional: a private cloud dev box
 
 If this is **your own** box and you want the private repos, opt in
-deliberately: remove `DOME_CLONE_OVERRIDE` from `manifest/user.txt` and give
-the box a credential that can only read.
+deliberately: change `REPOS_CONFIG=SAFE` to `REPOS_CONFIG=DOME` in
+`manifest/user.txt` and give the box a credential that can only read.
 
 **Use a read-only deploy key, scoped to one repository** — github.com → the
 repo → Settings → Deploy keys, with *Allow write access* left **off**:
@@ -193,16 +195,19 @@ cost; revocation granularity is the payoff.
 
 ```sh
 echo "$ROS_DISTRO"            # kilted
-ros2 pkg list | grep -E 'better_launch|micro_ros'
+ros2 pkg list | grep better_launch
 ```
 
-With the default `PUBLIC_ONLY` setup those public packages are what you get.
-On the optional private setup, `ros2 pkg list | grep dome` lists the `dome*`
-packages too.
+With the default `REPOS_CONFIG=SAFE` set, `better_launch` is the one ROS
+package you get — `micro_ros` and the hardware drivers are not in that set. If
+you switched to `REPOS_CONFIG=DOME`, `ros2 pkg list | grep dome` lists the
+`dome*` packages too.
 
-Because `rosutils` (which normally sets up your shell) is a private repo, a
-`PUBLIC_ONLY` host does not have it. `~/.bashrc` then sources the ROS install
-and your workspace directly.
+`rosutils` is cloned to `~/rosutils` rather than into the workspace, so it is
+not a ROS package and will not appear in `ros2 pkg list`. It **is** present
+under `SAFE`, and `~/.bashrc` sources its shell setup; if a set omits it,
+`~/.bashrc` falls back to sourcing the ROS install and your workspace
+directly.
 
 ---
 
@@ -318,8 +323,8 @@ Prefer Foxglove.
   for the stop-vs-terminate distinction).
 
 - **If you used the optional private setup,** revoke the `cloud-dome` key at
-  github.com → Settings → SSH keys. With the default `PUBLIC_ONLY` there is
-  no key to revoke.
+  github.com → Settings → SSH keys. With the default `REPOS_CONFIG=SAFE` there
+  is no key to revoke.
 
 ---
 

@@ -13,7 +13,7 @@ All build configuration lives in `manifest/`. Scripts are thin executors. If add
 | `config.txt` | ROS_DISTRO, UBUNTU_CODENAME, DOME_USER default |
 | `packages.txt` | apt and ROS packages (`[apt]`/`[ros]` sections) |
 | `pip.txt` | pip3 packages |
-| `repos.txt` | git repos to clone (`[root]`/`[ros_ws]`/`[uros_ws]` sections) |
+| `repos-<set>.txt` | git repos to clone, one file per `REPOS_CONFIG` set (`[root]`/`[ros_ws]`/`[uros_ws]` sections) |
 | `apt-repos.txt` | third-party apt repos (GitHub CLI, VS Code) |
 | `tools.txt` | curl-installed tools (mcfly) |
 | `colcon.txt` | colcon build flags and package skip list |

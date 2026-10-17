@@ -11,6 +11,7 @@ services:
         DOME_BASE_IMAGE: ${DOME_BASE_IMAGE:-dome-docker-base:kilted}
         DOME_USER: ${DOME_USER:-robot}
         DOME_PASSWORD: ${DOME_PASSWORD:-}
+        REPOS_CONFIG: ${REPOS_CONFIG:-DOME}
     image: ${DOME_IMAGE:-dome-docker:dome-kilted}
     container_name: dome
     network_mode: host

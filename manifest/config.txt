@@ -27,8 +27,12 @@ DOME_DESKTOP=none
 # reached over `ssh -L` by a user whose public key is on the box.
 DOME_VNC_ACCESS=none
 
-# DOME_CLONE_OVERRIDE — unset by default: clone every repo in repos.txt. Set it
-# in manifest/user.txt (or the environment) to change that:
-#   PUBLIC_ONLY  skip repos marked PRIVATE_REPO (no GitHub credential needed)
-#   NONE         clone nothing
-# DOME_CLONE_OVERRIDE=PUBLIC_ONLY
+# REPOS_CONFIG — which named set of repos this host clones (F17). The value is
+# a set name mapped to manifest/repos-<name>.txt, lowercased: DOME is the full
+# robot set, SAFE is a minimal ROS 2 dev environment (rosutils + better_launch,
+# all HTTPS, no GitHub credential needed). NONE is a reserved value meaning
+# clone nothing; it maps to no file, so manifest/repos-none.txt must never be
+# created. A name with no matching file is a hard error, never a fallback.
+# Deliberately not DOME_-prefixed, unlike the globals above. Add a set by
+# dropping in a new repos-<name>.txt — no code change.
+REPOS_CONFIG=DOME

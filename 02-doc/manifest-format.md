@@ -43,11 +43,15 @@ roboflowoak
 
 ---
 
-## repos.txt — INI sections, one repo per line: `url dest [branch] [PRIVATE_REPO]`
+## repos-&lt;set&gt;.txt — INI sections, one repo per line: `url dest [revision]`
+
+Each **named repo set** gets its own file, and `REPOS_CONFIG` picks one (F17):
+`REPOS_CONFIG=DOME` reads `manifest/repos-dome.txt`, `SAFE` reads
+`manifest/repos-safe.txt`. The value is uppercase, the filename lowercase.
 
 ```
 [root]
-git@github.com:campusrover/rosutils.git rosutils
+https://github.com/campusrover/rosutils.git rosutils 1e0fbebea7ced8c63ea1bb60031d06e42a3daedf
 
 [ros_ws]
 https://github.com/dfki-ric/better_launch.git better_launch devel
@@ -56,9 +60,17 @@ https://github.com/dfki-ric/better_launch.git better_launch devel
 https://github.com/micro-ROS/micro-ROS-Agent.git micro-ROS-Agent
 ```
 
-`PRIVATE_REPO` marks a repo that needs credentials (every `git@` line). It may
-appear before or after the branch and is never treated as one. It has no effect
-until `DOME_CLONE_OVERRIDE` is set (F10).
+The optional third field is **one revision**: 40 hex characters is a commit
+pin, anything else a branch. There is no credential marker — whether a set
+needs a GitHub key is **derived** from whether it contains any `git@` or
+`ssh://` url, and the build reports that when it resolves the set.
+
+A section may be empty, which documents that the omission is deliberate;
+`repos-safe.txt` leaves `[root-pi]` and `[uros_ws]` empty for that reason.
+
+**Adding a set** needs no code change: drop in `manifest/repos-<name>.txt` and
+set `REPOS_CONFIG=<NAME>`. `NONE` is reserved and means clone nothing, so
+`manifest/repos-none.txt` must never be created.
 
 Sections: `root` → `$DOME_HOME`, `ros_ws` → `$DOME_HOME/ros2_ws/src`, `uros_ws` → `$DOME_HOME/uros_ws/src`.
 

@@ -27,7 +27,7 @@ a new name.
 
 ## TF17.0 — record the decisions
 
-**Status**: not done
+**Status**: done
 
 **Decisions (2026-09-26):** the global is **`REPOS_CONFIG`**, deliberately
 without the `DOME_` prefix the other globals carry. **`NONE`** is a reserved
@@ -46,7 +46,7 @@ change.
 
 ## TF17.1 — add `manifest_repos_file` to lib.sh
 
-**Status**: not done
+**Status**: done
 
 **Description**: Add the name→file resolver to `manifest/lib.sh`. `NONE`
 returns the empty string; any other name lowercases to
@@ -63,7 +63,7 @@ and the path named in the message).
 
 ## TF17.2 — create the two set files, markers intact
 
-**Status**: not done
+**Status**: done
 
 **Description**: `git mv manifest/repos.txt manifest/repos-dome.txt`, leaving
 its contents **including the `PRIVATE_REPO` markers** untouched. Create
@@ -78,7 +78,7 @@ Markers stay for now; TF17.5 removes them once nothing depends on them.
 
 ## TF17.3 — switch `bare-metal-build.sh` to the resolver
 
-**Status**: not done
+**Status**: done
 
 **Description**: Replace the `DOME_CLONE_OVERRIDE` cascade
 (`bare-metal-build.sh:28-30`) with a `REPOS_CONFIG` cascade using the same
@@ -107,7 +107,7 @@ remains, and that the report line names the set and file.
 
 ## TF17.4 — switch the `Dockerfile` to the resolver
 
-**Status**: not done
+**Status**: done
 
 **Description**: Add `ARG REPOS_CONFIG=DOME` and resolve the set file instead
 of hardcoding `/manifest/repos.txt` (`Dockerfile:45`). The Dockerfile already
@@ -125,7 +125,7 @@ scope for the suite, consistent with every other Dockerfile check.
 
 ## TF17.5 — strip the `PRIVATE_REPO` markers
 
-**Status**: not done
+**Status**: done
 
 **Description**: Remove the trailing `PRIVATE_REPO` token from all 17 lines in
 `manifest/repos-dome.txt`. Nothing reads it by this point: TF17.3 and TF17.4
@@ -139,7 +139,7 @@ as before the strip.
 
 ## TF17.6 — simplify the parser, delete the dead functions
 
-**Status**: not done
+**Status**: done
 
 **Description**: Reduce `manifest_parse_repo` to
 `read -r REPO_URL REPO_DEST REPO_BRANCH` and drop `REPO_IS_PRIVATE`. Delete
@@ -155,7 +155,7 @@ deleted functions are absent from `lib.sh`.
 
 ## TF17.7 — `config.txt` default and the cloud-init template
 
-**Status**: not done
+**Status**: done
 
 **Description**: Replace the `DOME_CLONE_OVERRIDE` block in
 `manifest/config.txt` with `REPOS_CONFIG=DOME`, documenting the `NONE`
@@ -172,7 +172,7 @@ default; the template writes `REPOS_CONFIG=SAFE` and no longer mentions
 
 ## TF17.8 — documentation
 
-**Status**: not done
+**Status**: done
 
 **Description**: Update `02-doc/cloud-howto.md` (Step 4 and the "private cloud
 dev box" section), `pi-howto.md`, `vm-howto.md`, `docker-howto.md`,
@@ -188,7 +188,7 @@ record.
 
 ## TF17.9 — the F17 test suite
 
-**Status**: not done
+**Status**: done
 
 **Description**: Finalize `tests/test_f17_repos_config.sh` as the feature's
 dedicated suite and delete `tests/test_f10_repo_cloning.sh`, whose 47 checks
@@ -210,7 +210,7 @@ Two checks beyond the per-step assertions above:
 
 ## TF17.10 — migrate the live box, log the chore
 
-**Status**: not done
+**Status**: half done — chore logged, **box migration deferred**
 
 **Description**: `dome-cloud-1`'s `manifest/user.txt` still carries
 `DOME_CLONE_OVERRIDE=PUBLIC_ONLY`, which becomes meaningless — leaving it to
@@ -223,3 +223,30 @@ the flag.
 
 *Test:* none — an operational change on a live host plus a chore entry. Verify
 by hand with a `bare-metal-build.sh` rerun on the box once it is next started.
+
+**Done here:** the chore is logged in `04-tasks/chores.md`, together with the
+`REPOS_CONFIG` wiring through `compose.yaml`/`dome-config.sh` that TF17.4 needed
+to actually be reachable.
+
+**Deferred, and it must not be done early.** Migrating the box's `user.txt`
+*before* the box pulls this code makes things worse, not better: the old code on
+the box reads `DOME_CLONE_OVERRIDE`, so removing that line leaves it cloning
+**everything** and demanding a GitHub key it does not have. The order is
+therefore fixed — **push F17, `git pull` on the box, then rewrite `user.txt`**:
+
+```
+ssh dome-cloud-1
+cd ~/provision_dome && git pull
+printf 'DOME_USER=pitosalas\nDOME_TARGET=cloud\nDOME_DESKTOP=vnc\nDOME_VNC_ACCESS=public\nREPOS_CONFIG=SAFE\n' > manifest/user.txt
+sudo scripts/bare-metal-build.sh
+```
+
+Rewrite the file rather than appending — the box already hit the duplicate-key
+concatenation bug recorded in `chores.md`. Preserve whatever `DOME_*` overrides
+the box actually carries; the line above is from `current.md` and should be
+checked against the box, not trusted.
+
+**This is required before the next build on that box.** After F17,
+`DOME_CLONE_OVERRIDE=PUBLIC_ONLY` is a key nothing reads, so `REPOS_CONFIG`
+falls through to the `config.txt` default of `DOME` — the full private set — and
+the build fails on the first `git@` clone.

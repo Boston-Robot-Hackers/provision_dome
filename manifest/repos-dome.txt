@@ -1,0 +1,45 @@
+# DOME — the full robot set, and the default (F17). Selected with
+# REPOS_CONFIG=DOME; see manifest/config.txt. Most entries are private and need
+# a GitHub SSH key; the build reports that up front, derived from the urls here.
+#
+# A 40-hex trailing field pins a repo to that commit (F15.3). rosutils is
+# pinned because manifest/bashrc sources its ros2_robot_bashrc.bash into every
+# interactive shell on every target, the robot included — an unreviewed upstream
+# change runs as the user everywhere. Moving the pin is a review step: read the
+# diff first.
+[root]
+https://github.com/campusrover/rosutils.git rosutils 1e0fbebea7ced8c63ea1bb60031d06e42a3daedf
+https://github.com/luxonis/depthai-python.git depthai-python
+https://github.com/pitosalas/linorobot2_hardware.git linorobot2_hardware
+git@github.com:Boston-Robot-Hackers/j3.git j3
+
+[root-pi]
+https://github.com/Seeed-Studio/seeed-linux-dtoverlays.git seeed-linux-dtoverlays
+https://github.com/raspberrypi/libcamera-apps.git libcamera-apps
+https://github.com/respeaker/mic_hat.git mic_hat
+
+[ros_ws]
+https://github.com/dfki-ric/better_launch.git better_launch devel
+git@github.com:campusrover/dome.git dome
+git@github.com:Boston-Robot-Hackers/dome2.git dome2
+git@github.com:Boston-Robot-Hackers/dome_control.git dome_control
+git@github.com:Boston-Robot-Hackers/dome_mission.git dome_mission
+git@github.com:Boston-Robot-Hackers/dome_nav.git dome_nav
+git@github.com:Boston-Robot-Hackers/dome_nav_msgs.git dome_nav_msgs
+git@github.com:Boston-Robot-Hackers/dome_semantic.git dome_semantic
+git@github.com:Boston-Robot-Hackers/dome_semantic_msgs.git dome_semantic_msgs
+git@github.com:Boston-Robot-Hackers/dome_telemetry.git dome_telemetry
+git@github.com:Boston-Robot-Hackers/dome_vision.git dome_vision
+git@github.com:Boston-Robot-Hackers/dome_voice.git dome_voice
+git@github.com:Boston-Robot-Hackers/explore.git explore
+https://github.com/hippo5329/ldlidar_stl_ros2.git ldlidar_stl_ros2
+git@github.com:pitosalas/linorobot2.git linorobot2
+git@github.com:Boston-Robot-Hackers/metawtf.git metawtf
+https://github.com/micro-ROS/micro-ROS-Agent.git micro-ROS-Agent
+https://github.com/micro-ROS/micro_ros_msgs.git micro_ros_msgs
+git@github.com:Boston-Robot-Hackers/ros2diag.git ros2diag
+git@github.com:pitosalas/status_panel.git status_panel
+
+[uros_ws]
+https://github.com/micro-ROS/micro-ROS-Agent.git micro-ROS-Agent
+https://github.com/micro-ROS/micro_ros_msgs.git micro_ros_msgs

@@ -24,10 +24,11 @@ _DOME_TARGET_DEFAULT=$(manifest_config DOME_TARGET "${MANIFEST_DIR}/config.txt")
 _DOME_TARGET_FILE=$(grep '^[[:space:]]*DOME_TARGET=' "${MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
 DOME_TARGET="${DOME_TARGET:-${_DOME_TARGET_FILE:-${_DOME_TARGET_DEFAULT}}}"
 
-# Optional: no config.txt default, so unset resolves to empty (clone everything).
-_DOME_CLONE_OVERRIDE_FILE=$(grep '^[[:space:]]*DOME_CLONE_OVERRIDE=' "${MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
-DOME_CLONE_OVERRIDE="${DOME_CLONE_OVERRIDE:-${_DOME_CLONE_OVERRIDE_FILE}}"
-manifest_validate_clone_override "${DOME_CLONE_OVERRIDE}"
+_REPOS_CONFIG_DEFAULT=$(manifest_config REPOS_CONFIG "${MANIFEST_DIR}/config.txt")
+_REPOS_CONFIG_FILE=$(grep '^[[:space:]]*REPOS_CONFIG=' "${MANIFEST_DIR}/user.txt" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
+REPOS_CONFIG="${REPOS_CONFIG:-${_REPOS_CONFIG_FILE:-${_REPOS_CONFIG_DEFAULT}}}"
+# Errors here on an unknown set name, before anything is created or cloned.
+REPOS_FILE=$(manifest_repos_file "${REPOS_CONFIG}" "${MANIFEST_DIR}")
 
 DOME_HOME="/home/${DOME_USER}"
 
@@ -37,7 +38,25 @@ if ! id "${DOME_USER}" >/dev/null 2>&1; then
 fi
 
 echo "==> DOME_USER=${DOME_USER}  ROS_DISTRO=${ROS_DISTRO}  DOME_HOME=${DOME_HOME}"
-echo "==> DOME_CLONE_OVERRIDE='${DOME_CLONE_OVERRIDE}' (empty = clone all)"
+
+# Report the selected set, its file, its size, and whether a credential is
+# needed. The last is derived from the urls in the file rather than declared,
+# so it cannot rot the way a per-line marker could.
+report_repos_config() {
+    local count needs
+    if [[ -z "${REPOS_FILE}" ]]; then
+        echo "==> REPOS_CONFIG=${REPOS_CONFIG} (reserved value: cloning no repositories)"
+        return
+    fi
+    count=$(awk '/^\[/{next} /^[^#[:space:]]/ && NF' "${REPOS_FILE}" | wc -l | tr -d ' ')
+    if grep -qE '(^|[[:space:]])(git@|ssh://)' "${REPOS_FILE}"; then
+        needs="needs a GitHub SSH key"
+    else
+        needs="no GitHub SSH key needed"
+    fi
+    echo "==> REPOS_CONFIG=${REPOS_CONFIG} (${REPOS_FILE}, ${count} repos, ${needs})"
+}
+report_repos_config
 
 # --- Directory structure ---
 echo "==> Creating home directory structure"
@@ -60,14 +79,11 @@ echo "==> Cloning repositories"
 clone_section() {
     local section="$1"
     local base_dir="$2"
+    local repos_file="$3"
     mkdir -p "${base_dir}"
     while read -r line; do
         [[ -z "${line}" ]] && continue
         manifest_parse_repo "${line}"
-        if ! manifest_should_clone "${DOME_CLONE_OVERRIDE}" "${REPO_IS_PRIVATE}" "${REPO_URL}"; then
-            echo "  Skipping ${REPO_URL} (DOME_CLONE_OVERRIDE=${DOME_CLONE_OVERRIDE})"
-            continue
-        fi
         if [[ -d "${base_dir}/${REPO_DEST}" ]]; then
             echo "  Skipping ${REPO_URL} -> ${base_dir}/${REPO_DEST} (already exists)"
             continue
@@ -88,14 +104,16 @@ clone_section() {
             sudo -u "${DOME_USER}" git -C "${base_dir}/${REPO_DEST}" checkout --detach "${REPO_COMMIT}" \
                 || { echo "ERROR: failed to check out ${REPO_COMMIT} in ${REPO_DEST}" >&2; exit 1; }
         fi
-    done < <(awk -v s="${section}" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' "${MANIFEST_DIR}/repos.txt")
+    done < <(awk -v s="${section}" '$0=="["s"]"{f=1;next} /^\[/{f=0} f && /^[^#[:space:]]/ && NF' "${repos_file}")
 }
-clone_section root "${DOME_HOME}"
-if [[ "${DOME_TARGET}" == "pi" ]]; then
-    clone_section root-pi "${DOME_HOME}"
+if [[ -n "${REPOS_FILE}" ]]; then
+    clone_section root "${DOME_HOME}" "${REPOS_FILE}"
+    if [[ "${DOME_TARGET}" == "pi" ]]; then
+        clone_section root-pi "${DOME_HOME}" "${REPOS_FILE}"
+    fi
+    clone_section ros_ws "${DOME_HOME}/ros2_ws/src" "${REPOS_FILE}"
+    clone_section uros_ws "${DOME_HOME}/uros_ws/src" "${REPOS_FILE}"
 fi
-clone_section ros_ws "${DOME_HOME}/ros2_ws/src"
-clone_section uros_ws "${DOME_HOME}/uros_ws/src"
 chown -R "${DOME_USER}:${DOME_USER}" "${DOME_HOME}"
 
 # --- dome_vision pyproject.toml handling ---
